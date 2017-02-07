@@ -29,7 +29,6 @@ class MainDialog(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
             self.textBrowser.verticalScrollBar()    \
                 .setValue(self.textBrowser.verticalScrollBar().maximum())
         
-    
 # main method
 if __name__ == "__main__":
     app = QtGui.QApplication(sys.argv)
