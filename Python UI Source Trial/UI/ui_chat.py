@@ -41,7 +41,7 @@ class Ui_MainWindow(object):
         self.textBrowser.setGeometry(QtCore.QRect(20, 10, 401, 192))
         self.textBrowser.setObjectName(_fromUtf8("textBrowser"))
         self.lineEdit = QtGui.QLineEdit(self.centralwidget)
-        self.lineEdit.setGeometry(QtCore.QRect(20, 211, 361, 20))
+        self.lineEdit.setGeometry(QtCore.QRect(21, 211, 361, 20))
         self.lineEdit.setObjectName(_fromUtf8("lineEdit"))
         self.pushButton_2 = QtGui.QPushButton(self.centralwidget)
         self.pushButton_2.setGeometry(QtCore.QRect(464, 210, 75, 23))
@@ -56,8 +56,6 @@ class Ui_MainWindow(object):
         self.actionSave.setObjectName(_fromUtf8("actionSave"))
 
         self.retranslateUi(MainWindow)
-        QtCore.QObject.connect(self.lineEdit, QtCore.SIGNAL(_fromUtf8("textChanged(QString)")), self.textBrowser.setText)
-        QtCore.QObject.connect(self.pushButton, QtCore.SIGNAL(_fromUtf8("clicked()")), self.lineEdit.selectAll)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):

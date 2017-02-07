@@ -52,7 +52,7 @@
    <widget class="QLineEdit" name="lineEdit">
     <property name="geometry">
      <rect>
-      <x>20</x>
+      <x>21</x>
       <y>211</y>
       <width>361</width>
       <height>20</height>
@@ -98,38 +98,5 @@
   </action>
  </widget>
  <resources/>
- <connections>
-  <connection>
-   <sender>lineEdit</sender>
-   <signal>textChanged(QString)</signal>
-   <receiver>textBrowser</receiver>
-   <slot>setText(QString)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>198</x>
-     <y>220</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>220</x>
-     <y>105</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>pushButton</sender>
-   <signal>clicked()</signal>
-   <receiver>lineEdit</receiver>
-   <slot>selectAll()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>414</x>
-     <y>219</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>340</x>
-     <y>219</y>
-    </hint>
-   </hints>
-  </connection>
- </connections>
+ <connections/>
 </ui>
