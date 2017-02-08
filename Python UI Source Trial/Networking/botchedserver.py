@@ -13,17 +13,18 @@ class Server(QtGui.QDialog):
         quitButton = QtGui.QPushButton("Quit")
         quitButton.setAutoDefault(False)
 
-        # create a TCPServer
         self.tcpServer = QtNetwork.QTcpServer(self)
+        self.tcpSocket = QtNetwork.QTcpSocket() # just declare it
 
-        # begin listening for new connections
-        if not self.tcpServer.listen():
+        self.request = None
+        self.blockSize = 0
+
+        if not self.tcpServer.listen(QtNetwork.QHostAddress("localhost"), 5319):
             QtGui.QMessageBox.critical(self, "Fortune Server",
                                        "Unable to start the server: %s." % self.tcpServer.errorString())
             self.close()
             return
 
-        # display the server information
         statusLabel.setText("The server is running on port %d.\nRun the "
                             "Fortune Client example now." % self.tcpServer.serverPort())
 
@@ -37,7 +38,8 @@ class Server(QtGui.QDialog):
             "Computers are not intelligent. They only think they are.")
 
         quitButton.clicked.connect(self.close)
-        self.tcpServer.newConnection.connect(self.sendFortune)
+        self.tcpServer.newConnection.connect(self.newClient)
+
 
         buttonLayout = QtGui.QHBoxLayout()
         buttonLayout.addStretch(1)
@@ -90,6 +92,45 @@ class Server(QtGui.QDialog):
         # write the byte array that has been populated with 'out' object into the socket
         clientConnection.write(block)
         clientConnection.disconnectFromHost()
+
+    # connect to the other end of the line
+    def setupConnection(self):
+        # Attempts to make a connection to hostName on the given port.
+        # The protocol parameter can be used to specify which network protocol to use (eg. IPv4 or IPv6).
+        self.tcpSocket.connectToHost(self.hostLineEdit.text(),
+                                     int(self.portLineEdit.text()))
+
+    def newClient(self):
+        self.tcpSocket = self.tcpServer.nextPendingConnection()
+        self.tcpSocket.readyRead.connect(self.readMessage)
+        print "new client detected"
+
+    def readMessage(self):
+        print "Received message, beginning to print"
+
+        # Constructs a data stream that uses the I/O device d.
+        instr = QtCore.QDataStream(self.tcpSocket)
+        instr.setVersion(QtCore.QDataStream.Qt_4_0)
+
+
+        # if we haven't read anything yet from the server and size is not set
+        if self.blockSize == 0:
+            # the first two bytes are reserved for the size of the payload.
+            # must check it is at least that size to take in a valid payload size.
+            if self.tcpSocket.bytesAvailable() < 2:
+                return
+
+            # read the size of the byte array payload from server
+            self.blockSize = instr.readUInt16()
+
+        # the data is incomplete so we return until the data is good
+        if self.tcpSocket.bytesAvailable() < self.blockSize:
+            return
+
+        # read the data from the datastream
+        msg = instr.readQString()
+        print msg
+        self.blockSize = 0  # reset the block size for next msg to default
 
 
 if __name__ == '__main__':

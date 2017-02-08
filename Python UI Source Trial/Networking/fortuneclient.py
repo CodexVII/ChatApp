@@ -58,7 +58,7 @@ class Client(QtGui.QDialog):
 
         # naming the objects for user input
         # validation included for port
-        self.hostLineEdit = QtGui.QLineEdit('Localhost')
+        self.hostLineEdit = QtGui.QLineEdit('localhost')
         self.portLineEdit = QtGui.QLineEdit()
         self.portLineEdit.setValidator(QtGui.QIntValidator(1, 65535, self))
 
