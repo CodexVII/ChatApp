@@ -6,7 +6,7 @@ import threading
 import sys
 import ui_chat
     
-class MainDialog(QtGui.QMainWindow, ui_chat.Ui_MainWindow):         
+class MainDialog(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
     # setup the imported UI
     def __init__(self, parent=None):
         super(MainDialog, self).__init__(parent)
@@ -23,7 +23,7 @@ class MainDialog(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         current_text = self.lineEdit.text()
         
         # only append if message is not empty
-        if(current_text != ""):
+        if current_text != "":
             text += current_text
             self.textBrowser.setText(text + "\n")
             
