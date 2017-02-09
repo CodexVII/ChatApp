@@ -151,7 +151,6 @@ class ConnectDialog(QtGui.QDialog, ui_connect.Ui_Dialog):
         self.lineEdit.returnPressed.connect(self.on_connect_clicked)
         self.lineEdit_2.returnPressed.connect(self.on_connect_clicked)
         self.pushButton.clicked.connect(self.on_connect_clicked)
-
         self.pushButton.setDisabled(True)
 
     def on_input_changed(self):
@@ -196,6 +195,7 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
 
         # connecting SIGNALS to SLOTS
         self.pushButton.clicked.connect(self.sendMessage)
+        self.pushButton_2.clicked.connect(self.attachImg)
         self.lineEdit.returnPressed.connect(self.sendMessage)
         self.lineEdit.textChanged.connect(self.on_message_update)
         self.actionConnect.triggered.connect(self.on_connect_triggered)
@@ -242,6 +242,10 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
             # write out the message to the client
             self.comm.write("1", msg)
 
+    def attachImg(self):
+        QtGui.QFileDialog.getOpenFileName(self, 'Open file',
+                                          'c:\\', "Image files (*.jpg *.gif *.png)")
+
     def displayMessage(self, msg):
         timestamp = strftime("%H:%M", gmtime())
         self.textBrowser.append("[" + str(timestamp) + "] " + "Anonymous>> " + msg)
@@ -262,9 +266,10 @@ if __name__ == "__main__":
 
     # setting app icon
     app.setWindowIcon(QtGui.QIcon('D.png'))
-    myappid = u'dollars.chat.app'  # arbitrary string
-    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+    appId = u'dollars.chat.app'  # arbitrary string
+    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(appId)
 
     chat = MainWindow()
     chat.show()
+
     app.exec_()
