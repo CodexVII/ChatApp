@@ -129,6 +129,7 @@ class Server(QtGui.QDialog):
 
         # read the data from the datastream
         msg = instr.readQString()
+        instr.read
         print msg
         self.blockSize = 0  # reset the block size for next msg to default
 

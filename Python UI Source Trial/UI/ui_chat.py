@@ -90,7 +90,7 @@ class Ui_MainWindow(object):
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):
-        MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow", None))
+        MainWindow.setWindowTitle(_translate("MainWindow", "DOLLARS  Chat", None))
         self.pushButton_2.setText(_translate("MainWindow", "Attach", None))
         self.pushButton.setText(_translate("MainWindow", "Send", None))
         self.groupBox.setTitle(_translate("MainWindow", "User Info", None))

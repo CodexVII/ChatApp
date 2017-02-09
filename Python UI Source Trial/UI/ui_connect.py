@@ -48,7 +48,7 @@ class Ui_Dialog(object):
         QtCore.QMetaObject.connectSlotsByName(Dialog)
 
     def retranslateUi(self, Dialog):
-        Dialog.setWindowTitle(_translate("Dialog", "Dialog", None))
+        Dialog.setWindowTitle(_translate("Dialog", "DOLLARS Chat", None))
         self.label.setText(_translate("Dialog", "Server Address", None))
         self.label_2.setText(_translate("Dialog", "Port Number", None))
         self.pushButton.setText(_translate("Dialog", "Connect", None))

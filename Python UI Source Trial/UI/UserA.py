@@ -23,6 +23,8 @@ class ConnectDialog(QtGui.QDialog, ui_connect.Ui_Dialog):
 
 
 class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
+    HEADER_SIZE = 3  # in bytes
+
     # setup the imported UI
     def __init__(self, parent=None):
         super(MainWindow, self).__init__(parent)
@@ -35,6 +37,7 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
 
         # networking stuff
         self.blockSize = 0
+        self.msgType = 0
         # One TcpSocket is for the server portion of the program (_receive)
         # the other is for the client portion of the program (_request)
         self.tcpSocket_receive = QtNetwork.QTcpSocket(self)
@@ -42,7 +45,7 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         self.tcpServer = QtNetwork.QTcpServer(self)
 
         # begin listening at a random port
-        if not self.tcpServer.listen(QtNetwork.QHostAddress("localhost"), randint(5000,65535)):
+        if not self.tcpServer.listen(QtNetwork.QHostAddress("localhost"), randint(5000, 65535)):
             self.statusBar.showMessage("Unablet to start server")
 
         # update the port number in GUI with listening port
@@ -113,17 +116,20 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         out = QtCore.QDataStream(block, QtCore.QIODevice.WriteOnly)
         out.setVersion(QtCore.QDataStream.Qt_4_0)
         out.writeUInt16(0)
+        out.writeUInt8("1")
 
         # write the message into the output stream
         out.writeQString(msg)
         out.device().seek(0)
-        out.writeUInt16(block.size() - 2)  # Manages the threads required for sending out messages to clients.
+        out.writeUInt16(
+            block.size() - self.HEADER_SIZE)  # Manages the threads required for sending out messages to clients.
 
         # write out the message to the socket which is linked to the client
         self.tcpSocket_request.write(block)  # main method
 
         # clear the user input box
         self.lineEdit.setText('')
+        print block
 
     def readMessage(self):
         # Constructs a data stream that uses the I/O device d.
@@ -134,24 +140,30 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         if self.blockSize == 0:
             # the first two bytes are reserved for the size of the payload.
             # must check it is at least that size to take in a valid payload size.
-            if self.tcpSocket_receive.bytesAvailable() < 2:
+            if self.tcpSocket_receive.bytesAvailable() < self.HEADER_SIZE:
                 return
 
             # read the size of the byte array payload from server
             self.blockSize = instr.readUInt16()
+
+            # read the message type on the payload
+            self.msgType = instr.readUInt8()
 
         # the data is incomplete so we return until the data is good
         if self.tcpSocket_receive.bytesAvailable() < self.blockSize:
             return
 
         # read the data from the datastream
-        msg = instr.readQString()
+        print self.msgType
+        if self.msgType is "1":
+            msg = instr.readQString()
 
-        # append the received msg to the text browser
-        self.textBrowser.append("Anonymous>>" + msg)
-        self.blockSize = 0  # reset the block size for next msg to default
+            # append the received msg to the text browser
+            self.textBrowser.append("Anonymous>>" + msg)
+            self.blockSize = 0  # reset the block size for next msg to default
 
-        return msg
+        # return msg
+
 
 if __name__ == "__main__":
     app = QtGui.QApplication(sys.argv)
