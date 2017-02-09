@@ -142,6 +142,9 @@ class ConnectDialog(QtGui.QDialog, ui_connect.Ui_Dialog):
         super(ConnectDialog, self).__init__(parent)
         self.setupUi(self)
 
+        # prevent resizing
+        self.setFixedSize(254, 96)
+
         # default values for connection
         self.lineEdit.setText("localhost")
 
@@ -181,14 +184,17 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
     def __init__(self, parent=None):
         super(MainWindow, self).__init__(parent)
 
+        # prevent resizing
+        self.setFixedSize(550, 276)
+
+        # build UI from the one generated from pyuic4
+        self.setupUi(self)
+
         # create a dialog which will become a popup
         self.connectDialog = ConnectDialog(self)
 
         # handles all communication logic
         self.comm = Communication(self)
-
-        # build UI from the one generated from pyuic4
-        self.setupUi(self)
 
         # update the port number in GUI with listening port
         self.lineEdit_5.setText(str(self.comm.tcpServer.serverPort()))
