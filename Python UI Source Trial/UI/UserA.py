@@ -108,8 +108,8 @@ class Communication(QtCore.QObject):
         # message contains port information
         elif self.msgType is "2":
             # save the port to set the request socket to point at that port
-            self.pairPort = instr.readQString()
-            self.pair(self.tcpSocket_receive.peerAddress(), self.pairPort)
+            self.pairPort = unicode(instr.readQString().toUtf8(), encoding="UTF-8")
+            self.pair(self.tcpSocket_receive.peerAddress(), int(self.pairPort))
 
         # reset the block size for next msg to be read
         self.blockSize = 0
@@ -234,7 +234,7 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
 
     # send out a message to the server whenever the user hits
     # the 'send' button. It will take in whatever is on the
-    # LineEdit box and write it into a socket
+    # LineEdit box and write it into    a socket
     def sendMessage(self):
         msg = str(self.lineEdit.text())
 
