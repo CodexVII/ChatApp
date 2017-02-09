@@ -4,7 +4,6 @@ from PyQt4 import QtGui, QtCore, QtNetwork
 import sys
 import ui_chat
 
-
 class MainDialog(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
     # setup the imported UI
     def __init__(self, parent=None):
@@ -18,6 +17,7 @@ class MainDialog(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
 
         # connecting SIGNALS and SOCKETS
         self.pushButton.clicked.connect(self.on_send_clicked)
+        self.actionConnect.triggered.connect(self.on_connect_triggered)
 
     # slot
     # connectto host (if not already connected)
@@ -26,18 +26,16 @@ class MainDialog(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         self.textBrowser.append(self.lineEdit.text())
 
         # add logic to communicate with the recipient
-        self.setupConnection("localhost", 5319)
+        self.sendMessage()
 
-    def setupConnection(self, host, port):
+    def on_connect_triggered(self):
         # check if socket is connected already
-        self.tcpSocket.abort()
-
         print "TCPSocket not connected.. setting up connection for you"
-        self.tcpSocket.connectToHost(host, port)
+        self.tcpSocket.connectToHost("localhost", 5319)
 
         if self.tcpSocket.waitForConnected():
-            print "Connected"
-            self.sendMessage()
+            self.statusBar.showMessage("Connected")
+
         else:
             print "Failed to connect"
 
@@ -62,9 +60,10 @@ class MainDialog(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         out.writeUInt16(block.size() - 2)  # Manages the threads required for sending out messages to clients.
 
         # write out the message to the socket which is linked to the client
-
         self.tcpSocket.write(block)  # main method
 
+        # clear the user input box
+        self.lineEdit.setText('')
 
 if __name__ == "__main__":
     app = QtGui.QApplication(sys.argv)

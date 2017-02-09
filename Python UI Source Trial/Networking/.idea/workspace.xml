@@ -3,7 +3,9 @@
   <component name="ChangeListManager">
     <list default="true" id="ed1946d2-85a6-4be6-993a-94815ac006e9" name="Default" comment="">
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/../UI/ChatUI.ui" afterPath="$PROJECT_DIR$/../UI/ChatUI.ui" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/../UI/UserA.py" afterPath="$PROJECT_DIR$/../UI/UserA.py" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/../UI/ui_chat.py" afterPath="$PROJECT_DIR$/../UI/ui_chat.py" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="TRACKING_ENABLED" value="true" />
@@ -23,8 +25,8 @@
           <file leaf-file-name="UserA.py" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/../UI/UserA.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="323">
-                  <caret line="32" column="30" lean-forward="true" selection-start-line="32" selection-start-column="30" selection-end-line="32" selection-end-column="30" />
+                <state relative-caret-position="678">
+                  <caret line="36" column="50" lean-forward="false" selection-start-line="36" selection-start-column="50" selection-end-line="36" selection-end-column="50" />
                   <folding>
                     <element signature="e#24#66#0" expanded="true" />
                   </folding>
@@ -35,8 +37,8 @@
           <file leaf-file-name="qTCPClient.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/qTCPClient.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="317">
-                  <caret line="82" column="0" lean-forward="true" selection-start-line="82" selection-start-column="0" selection-end-line="82" selection-end-column="0" />
+                <state relative-caret-position="494">
+                  <caret line="32" column="32" lean-forward="true" selection-start-line="32" selection-start-column="32" selection-end-line="32" selection-end-column="32" />
                   <folding />
                 </state>
               </provider>
@@ -45,8 +47,8 @@
           <file leaf-file-name="qTCPServer.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/qTCPServer.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="266">
-                  <caret line="17" column="29" lean-forward="false" selection-start-line="17" selection-start-column="29" selection-end-line="17" selection-end-column="29" />
+                <state relative-caret-position="475">
+                  <caret line="28" column="21" lean-forward="true" selection-start-line="28" selection-start-column="21" selection-end-line="28" selection-end-column="21" />
                   <folding />
                 </state>
               </provider>
@@ -91,8 +93,8 @@
           <file leaf-file-name="botchedserver.py" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/botchedserver.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="2185">
-                  <caret line="115" column="22" lean-forward="true" selection-start-line="115" selection-start-column="22" selection-end-line="115" selection-end-column="22" />
+                <state relative-caret-position="393">
+                  <caret line="107" column="14" lean-forward="false" selection-start-line="107" selection-start-column="14" selection-end-line="107" selection-end-column="14" />
                   <folding>
                     <element signature="e#23#36#0" expanded="true" />
                   </folding>
@@ -128,6 +130,8 @@
       <find>incomingconnect</find>
       <find>readMess</find>
       <find>request</find>
+      <find>abort</find>
+      <find>connectButton</find>
     </findStrings>
   </component>
   <component name="Git.Settings">
@@ -141,6 +145,7 @@
         <option value="$PROJECT_DIR$/fortuneserver.py" />
         <option value="$PROJECT_DIR$/fortuneclient.py" />
         <option value="$PROJECT_DIR$/botchedserver.py" />
+        <option value="$PROJECT_DIR$/qTCPClient.py" />
         <option value="$PROJECT_DIR$/../UI/UserA.py" />
       </list>
     </option>
@@ -236,23 +241,6 @@
       <option name="SHOW_COMMAND_LINE" value="false" />
       <method />
     </configuration>
-    <configuration default="false" name="threadedfortuneserver" type="PythonConfigurationType" factoryName="Python" temporary="true">
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <module name="Networking" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/threadedfortuneserver.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <method />
-    </configuration>
     <configuration default="false" name="UserA" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -283,6 +271,23 @@
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <module name="Networking" />
       <option name="SCRIPT_NAME" value="$PROJECT_DIR$/botchedserver.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <method />
+    </configuration>
+    <configuration default="false" name="qTCPClient" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <module name="Networking" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/qTCPClient.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <method />
@@ -424,17 +429,17 @@
     <list size="5">
       <item index="0" class="java.lang.String" itemvalue="Python.fortuneserver" />
       <item index="1" class="java.lang.String" itemvalue="Python.fortuneclient" />
-      <item index="2" class="java.lang.String" itemvalue="Python.threadedfortuneserver" />
-      <item index="3" class="java.lang.String" itemvalue="Python.UserA" />
-      <item index="4" class="java.lang.String" itemvalue="Python.botchedserver" />
+      <item index="2" class="java.lang.String" itemvalue="Python.UserA" />
+      <item index="3" class="java.lang.String" itemvalue="Python.botchedserver" />
+      <item index="4" class="java.lang.String" itemvalue="Python.qTCPClient" />
     </list>
     <recent_temporary>
       <list size="5">
         <item index="0" class="java.lang.String" itemvalue="Python.UserA" />
-        <item index="1" class="java.lang.String" itemvalue="Python.botchedserver" />
-        <item index="2" class="java.lang.String" itemvalue="Python.fortuneclient" />
-        <item index="3" class="java.lang.String" itemvalue="Python.fortuneserver" />
-        <item index="4" class="java.lang.String" itemvalue="Python.threadedfortuneserver" />
+        <item index="1" class="java.lang.String" itemvalue="Python.qTCPClient" />
+        <item index="2" class="java.lang.String" itemvalue="Python.botchedserver" />
+        <item index="3" class="java.lang.String" itemvalue="Python.fortuneclient" />
+        <item index="4" class="java.lang.String" itemvalue="Python.fortuneserver" />
       </list>
     </recent_temporary>
   </component>
@@ -557,36 +562,36 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/qTCPServer.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="266">
-          <caret line="17" column="29" lean-forward="false" selection-start-line="17" selection-start-column="29" selection-end-line="17" selection-end-column="29" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/botchedserver.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="2185">
-          <caret line="115" column="22" lean-forward="true" selection-start-line="115" selection-start-column="22" selection-end-line="115" selection-end-column="22" />
+        <state relative-caret-position="393">
+          <caret line="107" column="14" lean-forward="false" selection-start-line="107" selection-start-column="14" selection-end-line="107" selection-end-column="14" />
           <folding>
             <element signature="e#23#36#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/qTCPServer.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="475">
+          <caret line="28" column="21" lean-forward="true" selection-start-line="28" selection-start-column="21" selection-end-line="28" selection-end-column="21" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/qTCPClient.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="317">
-          <caret line="82" column="0" lean-forward="true" selection-start-line="82" selection-start-column="0" selection-end-line="82" selection-end-column="0" />
+        <state relative-caret-position="494">
+          <caret line="32" column="32" lean-forward="true" selection-start-line="32" selection-start-column="32" selection-end-line="32" selection-end-column="32" />
           <folding />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/../UI/UserA.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="323">
-          <caret line="32" column="30" lean-forward="true" selection-start-line="32" selection-start-column="30" selection-end-line="32" selection-end-column="30" />
+        <state relative-caret-position="678">
+          <caret line="36" column="50" lean-forward="false" selection-start-line="36" selection-start-column="50" selection-end-line="36" selection-end-column="50" />
           <folding>
             <element signature="e#24#66#0" expanded="true" />
           </folding>
