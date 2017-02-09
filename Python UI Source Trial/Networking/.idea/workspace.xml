@@ -1,26 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="ed1946d2-85a6-4be6-993a-94815ac006e9" name="Default" comment="">
-      <change type="DELETED" beforePath="$PROJECT_DIR$/.idea/Networking.iml" afterPath="" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/.idea/misc.xml" afterPath="" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/.idea/modules.xml" afterPath="" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/.idea/vcs.xml" afterPath="" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/.spyderproject" afterPath="" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/botchedserver.py" afterPath="" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/fortuneclient.py" afterPath="" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/fortuneserver.py" afterPath="" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/qTCPClient.py" afterPath="" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/qTCPServer.py" afterPath="" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/threadedfortuneserver.py" afterPath="" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/../UI/.spyderproject" afterPath="" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/../UI/TCPClient.py" afterPath="" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/../UI/TCPServer.py" afterPath="" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/../UI/ThreaddedTCP.py" afterPath="" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/../UI/UserB.py" afterPath="" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/../UI/UserA.py" afterPath="$PROJECT_DIR$/../UI/UserA.py" />
-    </list>
+    <list default="true" id="ed1946d2-85a6-4be6-993a-94815ac006e9" name="Default" comment="" />
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="TRACKING_ENABLED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -49,8 +30,8 @@
       <file leaf-file-name="UserA.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/../UI/UserA.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="268">
-              <caret line="247" column="0" lean-forward="true" selection-start-line="247" selection-start-column="0" selection-end-line="247" selection-end-column="0" />
+            <state relative-caret-position="344">
+              <caret line="251" column="13" lean-forward="true" selection-start-line="251" selection-start-column="13" selection-end-line="251" selection-end-column="13" />
               <folding>
                 <element signature="e#24#66#0" expanded="true" />
               </folding>
@@ -539,8 +520,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/../UI/UserA.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="268">
-          <caret line="247" column="0" lean-forward="true" selection-start-line="247" selection-start-column="0" selection-end-line="247" selection-end-column="0" />
+        <state relative-caret-position="344">
+          <caret line="251" column="13" lean-forward="true" selection-start-line="251" selection-start-column="13" selection-end-line="251" selection-end-column="13" />
           <folding>
             <element signature="e#24#66#0" expanded="true" />
           </folding>

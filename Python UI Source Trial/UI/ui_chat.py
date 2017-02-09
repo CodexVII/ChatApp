@@ -101,7 +101,7 @@ class Ui_MainWindow(object):
         self.lineEdit.setPlaceholderText(_translate("MainWindow", "Type a message...", None))
         self.pushButton_2.setText(_translate("MainWindow", "Attach", None))
         self.pushButton.setText(_translate("MainWindow", "Send", None))
-        self.groupBox.setTitle(_translate("MainWindow", "User Info", None))
+        self.groupBox.setTitle(_translate("MainWindow", "Chat Info", None))
         self.label_3.setText(_translate("MainWindow", "Address", None))
         self.lineEdit_4.setText(_translate("MainWindow", "localhost", None))
         self.label_4.setText(_translate("MainWindow", "Port", None))

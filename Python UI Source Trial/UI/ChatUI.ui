@@ -80,7 +80,7 @@ p, li { white-space: pre-wrap; }
      </rect>
     </property>
     <property name="title">
-     <string>User Info</string>
+     <string>Chat Info</string>
     </property>
     <widget class="QLabel" name="label_3">
      <property name="geometry">
