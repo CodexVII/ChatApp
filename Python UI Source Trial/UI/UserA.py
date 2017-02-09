@@ -109,7 +109,7 @@ class Communication(QtCore.QObject):
         elif self.msgType is "2":
             # save the port to set the request socket to point at that port
             self.pairPort = instr.readQString()
-            self.pair(QtCore.QString("localhost"), self.pairPort.toInt()[0])
+            self.pair(self.tcpSocket_receive.peerAddress(), self.pairPort)
 
         # reset the block size for next msg to be read
         self.blockSize = 0
