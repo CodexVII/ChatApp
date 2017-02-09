@@ -37,8 +37,9 @@ class Communication(QtCore.QObject):
 
         # begin listening at a random port
         if not self.tcpServer.listen(QtNetwork.QHostAddress("localhost"), randint(5000, 65535)):
-            # self.statusBar.showMessage("Unable to start server")
-            self.listenStatus = 0
+            # server couldn't start
+            self.listenStatus = 1
+            self.listenError.emit()
 
         # connecting SIGNALS and SLOTS
         self.tcpServer.newConnection.connect(self.incomingClient)
@@ -51,7 +52,7 @@ class Communication(QtCore.QObject):
         self.tcpSocket_receive.readyRead.connect(self.read)
 
     # write routine which doesn't care about what it's writing or who it's writing to
-    def write(self, type, payload):
+    def write(self, payload_t, payload):
         # will contain the message
         block = QtCore.QByteArray()
 
@@ -60,7 +61,7 @@ class Communication(QtCore.QObject):
         out = QtCore.QDataStream(block, QtCore.QIODevice.WriteOnly)
         out.setVersion(QtCore.QDataStream.Qt_4_0)
         out.writeUInt16(0)
-        out.writeUInt8(type)
+        out.writeUInt8(payload_t)
 
         # write the server port into the message
         out.writeQString(str(payload))
@@ -83,10 +84,9 @@ class Communication(QtCore.QObject):
             if self.tcpSocket_receive.bytesAvailable() < self.HEADER_SIZE:
                 return
 
-            # read the size of the byte array payload from server
+            # read the size of the byte array payload from server.
+            # Once the first flag is consumed, read the message type on the payload
             self.blockSize = instr.readUInt16()
-
-            # read the message type on the payload
             self.msgType = instr.readUInt8()
 
         # the data is incomplete so we return until the data is good
@@ -117,16 +117,13 @@ class Communication(QtCore.QObject):
         # allows for connection between two chatting programmes
         # possibly the place where AES, SHA and RSA will take place
         if self.CONNECTED == 1:
-            print "Request socket not setup... connecting for you"
-            print "Target host: " + str(host)
-            print "Target port: " + str(port)
             self.tcpSocket_request.connectToHost(host, port)
             if self.tcpSocket_request.waitForConnected():
+                # connection succeeded
                 self.pairStatus = 0
                 self.CONNECTED = 0
-                # self.statusBar.showMessage("Failed to connect")
             else:
-                # self.statusBar.showMessage("Failed to connect")
+                # connection failed
                 self.pairStatus = 1
 
             # pairing done, let connected objects know
@@ -137,18 +134,46 @@ class Communication(QtCore.QObject):
 
 
 class ConnectDialog(QtGui.QDialog, ui_connect.Ui_Dialog):
+    # SIGNALS
     inputReady = QtCore.pyqtSignal()
 
     def __init__(self, parent):
         super(ConnectDialog, self).__init__(parent)
         self.setupUi(self)
 
+        # default values for connection
         self.lineEdit.setText("localhost")
+
+        # connect SIGNALS to SLOTS
+        self.lineEdit.textChanged.connect(self.on_input_changed)
+        self.lineEdit_2.textChanged.connect(self.on_input_changed)
+        self.lineEdit.returnPressed.connect(self.on_connect_clicked)
+        self.lineEdit_2.returnPressed.connect(self.on_connect_clicked)
         self.pushButton.clicked.connect(self.on_connect_clicked)
 
+        self.pushButton.setDisabled(True)
+
+    def on_input_changed(self):
+        # disable the button if input is not valid
+        if self.isValidInput():
+            self.pushButton.setEnabled(True)
+        else:
+            self.pushButton.setDisabled(True)
+
     def on_connect_clicked(self):
-        self.inputReady.emit()
-        self.close()
+        # inform other objects that the user has completed the form
+        # close the form once done.
+        if self.isValidInput():
+            self.inputReady.emit()
+            self.close()
+
+    # can be made more rigorous if felt needed
+    def isValidInput(self):
+        # check if either of the inputs are empty
+        if self.lineEdit.text() and self.lineEdit_2.text():
+            return True
+        else:
+            return False
 
 
 class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
@@ -174,6 +199,7 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         self.connectDialog.inputReady.connect(self.on_connect_info_ready)
         self.comm.messageReady.connect(lambda: self.displayMessage(self.comm.msg))
         self.comm.pairComplete.connect(lambda: self.displayConnectionStatus(self.comm.pairStatus))
+        self.comm.listenError.connect(lambda: self.displayListenStaus(self.comm.listenStatus))
 
         # user hasn't placed any input yet so disable the button
         self.pushButton.setDisabled(True)
@@ -204,14 +230,13 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         # first check if the msg is empty
         msg = str(self.lineEdit.text())
         if msg:
-            # append current user message to textBrowser
+            # append current user message to textBrowser and  clear the user input box
             self.textBrowser.append("You>> " + msg)
-
-            # clear the user input box
             self.lineEdit.setText('')
 
             # write out the message to the client
             self.comm.write("1", self.lineEdit.text())
+
 
     def displayMessage(self, msg):
         self.textBrowser.append("Anonymous>>" + msg)
@@ -222,6 +247,9 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         else:
             self.statusBar.showMessage("Failed to connect")
 
+    def displayListenStaus(self, status):
+        if status is 1:
+            self.statusBar.showMessage("Unable to start listening port")
 
 if __name__ == "__main__":
     app = QtGui.QApplication(sys.argv)
