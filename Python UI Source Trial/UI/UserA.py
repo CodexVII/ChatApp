@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from PyQt4 import QtGui, QtCore, QtNetwork
 from random import randint
+from time import strftime, gmtime
 
 import sys
 import ui_chat
@@ -45,7 +46,6 @@ class Communication(QtCore.QObject):
         self.tcpServer.newConnection.connect(self.incomingClient)
 
     def incomingClient(self):
-        print "new client"
         # assign the incoming connection to a socket and connect that socket's
         # readyRead signal to read the message
         self.tcpSocket_receive = self.tcpServer.nextPendingConnection()
@@ -234,14 +234,16 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         # check if the msg is empty
         if msg:
             # append current user message to textBrowser and  clear the user input box
-            self.textBrowser.append("You>> " + msg)
+            timestamp = strftime("%H:%M", gmtime())
+            self.textBrowser.append("[" + str(timestamp) + "] " + "You>> " + msg)
             self.lineEdit.clear()
 
             # write out the message to the client
-            self.comm.write("1", self.lineEdit.text())
+            self.comm.write("1", msg)
 
     def displayMessage(self, msg):
-        self.textBrowser.append("Anonymous>>" + msg)
+        timestamp = strftime("%H:%M", gmtime())
+        self.textBrowser.append("[" + str(timestamp) + "] " + "Anonymous>> " + msg)
 
     def displayConnectionStatus(self, status):
         if status is 0:
