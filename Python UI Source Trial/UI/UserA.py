@@ -183,6 +183,8 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
 
         # create a dialog which will become a popup
         self.connectDialog = ConnectDialog(self)
+
+        # handles all communication logic
         self.comm = Communication(self)
 
         # build UI from the one generated from pyuic4
@@ -227,16 +229,16 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
     # the 'send' button. It will take in whatever is on the
     # LineEdit box and write it into a socket
     def sendMessage(self):
-        # first check if the msg is empty
         msg = str(self.lineEdit.text())
+
+        # check if the msg is empty
         if msg:
             # append current user message to textBrowser and  clear the user input box
             self.textBrowser.append("You>> " + msg)
-            self.lineEdit.setText('')
+            self.lineEdit.clear()
 
             # write out the message to the client
             self.comm.write("1", self.lineEdit.text())
-
 
     def displayMessage(self, msg):
         self.textBrowser.append("Anonymous>>" + msg)
@@ -250,6 +252,7 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
     def displayListenStaus(self, status):
         if status is 1:
             self.statusBar.showMessage("Unable to start listening port")
+
 
 if __name__ == "__main__":
     app = QtGui.QApplication(sys.argv)
