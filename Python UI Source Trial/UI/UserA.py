@@ -25,6 +25,7 @@ class ConnectDialog(QtGui.QDialog, ui_connect.Ui_Dialog):
 class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
     HEADER_SIZE = 3  # in bytes
     CONNECTED = 0
+
     # setup the imported UI
     def __init__(self, parent=None):
         super(MainWindow, self).__init__(parent)
@@ -63,7 +64,7 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         # assign the incoming connection to a socket and connect that socket's
         # readyRead signal to read the message
         self.tcpSocket_receive = self.tcpServer.nextPendingConnection()
-        self.tcpSocket_receive.readyRead.connect(self.readMessage)
+        self.tcpSocket_receive.readyRead.connect(self.read)
 
     def on_send_clicked(self):
         # append current user message to textBrowser
@@ -79,6 +80,7 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
     def on_connect_info_ready(self):
         # ensure that each connection/reconnect is a fresh one
         self.tcpSocket_request.abort()
+        self.CONNECTED = 0
 
         # get the connection details from the connection dialog
         self.pair(self.connectDialog.lineEdit.text(), int(self.connectDialog.lineEdit_2.text()))
@@ -97,51 +99,40 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
             else:
                 self.statusBar.showMessage("Failed to connect")
 
-            # will contain the message
-            block = QtCore.QByteArray()
+            # alert the paired socket about the listening port by sending a message
+            self.write("2", str(self.tcpServer.serverPort()))
 
-            # inform that this message is to show the listening port
-            # prepare the output stream
-            out = QtCore.QDataStream(block, QtCore.QIODevice.WriteOnly)
-            out.setVersion(QtCore.QDataStream.Qt_4_0)
-            out.writeUInt16(0)
-            out.writeUInt8("2")
+    # write routine which doesn't care about what it's writing or who it's writing to
+    def write(self, type, payload):
+        # will contain the message
+        block = QtCore.QByteArray()
 
-            # write the server port into the message
-            out.writeQString(str(self.tcpServer.serverPort()))
-            out.device().seek(0)
-            out.writeUInt16(block.size() - self.HEADER_SIZE)  # Manages the threads required for sending out messages to clients.
-            # write out the message to the socket which is linked to the client
-            self.tcpSocket_request.write(block)
+        # inform that this message is to show the listening port
+        # prepare the output stream
+        out = QtCore.QDataStream(block, QtCore.QIODevice.WriteOnly)
+        out.setVersion(QtCore.QDataStream.Qt_4_0)
+        out.writeUInt16(0)
+        out.writeUInt8(type)
+
+        # write the server port into the message
+        out.writeQString(str(payload))
+        out.device().seek(0)
+        out.writeUInt16(block.size() - self.HEADER_SIZE)
+
+        # write out the message to the socket which is linked to the client
+        self.tcpSocket_request.write(block)
 
     # send out a message to the server whenever the user hits
     # the 'send' button. It will take in whatever is on the
     # LineEdit box and write it into a socket
     def sendMessage(self):
-        # get msg from  the UI
-        msg = self.lineEdit.text()
-
-        # will contain the message
-        block = QtCore.QByteArray()
-
-        # prepare the output stream
-        out = QtCore.QDataStream(block, QtCore.QIODevice.WriteOnly)
-        out.setVersion(QtCore.QDataStream.Qt_4_0)
-        out.writeUInt16(0)
-        out.writeUInt8("1")
-
-        # write the message into the output stream
-        out.writeQString(msg)
-        out.device().seek(0)
-        out.writeUInt16(block.size() - self.HEADER_SIZE)  # Manages the threads required for sending out messages to clients.
-
-        # write out the message to the socket which is linked to the client
-        self.tcpSocket_request.write(block)  # main method
+        # write out the message to the client
+        self.write("1", self.lineEdit.text())
 
         # clear the user input box
         self.lineEdit.setText('')
 
-    def readMessage(self):
+    def read(self):
         # Constructs a data stream that uses the I/O device d.
         instr = QtCore.QDataStream(self.tcpSocket_receive)
         instr.setVersion(QtCore.QDataStream.Qt_4_0)
@@ -163,7 +154,7 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         if self.tcpSocket_receive.bytesAvailable() < self.blockSize:
             return
 
-        # read the data from the datastream
+        # process the message depending on its type
         if self.msgType is "1":
             msg = instr.readQString()
 
@@ -176,6 +167,7 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
             self.pair(QtCore.QString("localhost"), self.pairPort.toInt()[0])
 
         self.blockSize = 0  # reset the block size for next msg to default
+
 
 if __name__ == "__main__":
     app = QtGui.QApplication(sys.argv)
