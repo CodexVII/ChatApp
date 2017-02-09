@@ -6,6 +6,7 @@ from time import strftime, gmtime
 import sys
 import ui_chat
 import ui_connect
+import ctypes
 
 
 # Inherit QObject to use signals
@@ -258,6 +259,12 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
 
 if __name__ == "__main__":
     app = QtGui.QApplication(sys.argv)
-    form = MainWindow()
-    form.show()
+
+    # setting app icon
+    app.setWindowIcon(QtGui.QIcon('D.png'))
+    myappid = u'dollars.chat.app'  # arbitrary string
+    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+
+    chat = MainWindow()
+    chat.show()
     app.exec_()

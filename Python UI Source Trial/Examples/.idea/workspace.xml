@@ -2,24 +2,7 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="ed1946d2-85a6-4be6-993a-94815ac006e9" name="Default" comment="">
-      <change type="DELETED" beforePath="$PROJECT_DIR$/.idea/Networking.iml" afterPath="" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/.idea/misc.xml" afterPath="" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/.idea/modules.xml" afterPath="" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/.idea/vcs.xml" afterPath="" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/.spyderproject" afterPath="" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/botchedserver.py" afterPath="" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/fortuneclient.py" afterPath="" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/fortuneserver.py" afterPath="" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/qTCPClient.py" afterPath="" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/qTCPServer.py" afterPath="" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/threadedfortuneserver.py" afterPath="" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/../UI/.spyderproject" afterPath="" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/../UI/TCPClient.py" afterPath="" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/../UI/TCPServer.py" afterPath="" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/../UI/ThreaddedTCP.py" afterPath="" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/../UI/UserB.py" afterPath="" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/../UI/UserA.py" afterPath="$PROJECT_DIR$/../UI/UserA.py" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="TRACKING_ENABLED" value="true" />
@@ -46,11 +29,43 @@
           </provider>
         </entry>
       </file>
+      <file leaf-file-name="qTCPClient.py" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/qTCPClient.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="437">
+              <caret line="26" column="33" lean-forward="false" selection-start-line="26" selection-start-column="33" selection-end-line="26" selection-end-column="33" />
+              <folding />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="qTCPServer.py" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/qTCPServer.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="114">
+              <caret line="12" column="29" lean-forward="false" selection-start-line="12" selection-start-column="29" selection-end-line="12" selection-end-column="29" />
+              <folding />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="UserB.py" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/../UI/UserB.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="-1805">
+              <caret line="49" column="42" lean-forward="false" selection-start-line="49" selection-start-column="42" selection-end-line="49" selection-end-column="42" />
+              <folding>
+                <element signature="e#24#66#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
       <file leaf-file-name="UserA.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/../UI/UserA.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="268">
-              <caret line="247" column="0" lean-forward="true" selection-start-line="247" selection-start-column="0" selection-end-line="247" selection-end-column="0" />
+            <state relative-caret-position="171">
+              <caret line="9" column="0" lean-forward="true" selection-start-line="9" selection-start-column="0" selection-end-line="9" selection-end-column="0" />
               <folding>
                 <element signature="e#24#66#0" expanded="true" />
               </folding>
@@ -131,6 +146,16 @@
             </PATH_ELEMENT>
             <PATH_ELEMENT>
               <option name="myItemId" value="UI" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+          </PATH>
+          <PATH>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="Networking" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="Networking" />
               <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
             </PATH_ELEMENT>
           </PATH>
@@ -467,7 +492,9 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="-380">
           <caret line="13" column="0" lean-forward="true" selection-start-line="13" selection-start-column="0" selection-end-line="13" selection-end-column="0" />
-          <folding />
+          <folding>
+            <element signature="e#0#13#0" expanded="false" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -475,7 +502,9 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="-931">
           <caret line="38" column="0" lean-forward="true" selection-start-line="38" selection-start-column="0" selection-end-line="38" selection-end-column="0" />
-          <folding />
+          <folding>
+            <element signature="e#23#36#0" expanded="false" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -499,7 +528,9 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="1140">
           <caret line="66" column="0" lean-forward="true" selection-start-line="66" selection-start-column="0" selection-end-line="66" selection-end-column="0" />
-          <folding />
+          <folding>
+            <element signature="e#23#36#0" expanded="false" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -533,14 +564,16 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="-1805">
           <caret line="49" column="42" lean-forward="false" selection-start-line="49" selection-start-column="42" selection-end-line="49" selection-end-column="42" />
-          <folding />
+          <folding>
+            <element signature="e#24#66#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/../UI/UserA.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="268">
-          <caret line="247" column="0" lean-forward="true" selection-start-line="247" selection-start-column="0" selection-end-line="247" selection-end-column="0" />
+        <state relative-caret-position="171">
+          <caret line="9" column="0" lean-forward="true" selection-start-line="9" selection-start-column="0" selection-end-line="9" selection-end-column="0" />
           <folding>
             <element signature="e#24#66#0" expanded="true" />
           </folding>
