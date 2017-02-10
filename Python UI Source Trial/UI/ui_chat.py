@@ -45,7 +45,7 @@ class Ui_MainWindow(object):
         self.groupBox.setGeometry(QtCore.QRect(390, 10, 151, 121))
         self.groupBox.setObjectName(_fromUtf8("groupBox"))
         self.label_3 = QtGui.QLabel(self.groupBox)
-        self.label_3.setGeometry(QtCore.QRect(11, 21, 39, 16))
+        self.label_3.setGeometry(QtCore.QRect(11, 21, 51, 16))
         self.label_3.setObjectName(_fromUtf8("label_3"))
         self.lineEdit_4 = QtGui.QLineEdit(self.groupBox)
         self.lineEdit_4.setGeometry(QtCore.QRect(11, 40, 129, 20))
@@ -54,7 +54,7 @@ class Ui_MainWindow(object):
         self.lineEdit_4.setReadOnly(True)
         self.lineEdit_4.setObjectName(_fromUtf8("lineEdit_4"))
         self.label_4 = QtGui.QLabel(self.groupBox)
-        self.label_4.setGeometry(QtCore.QRect(11, 66, 20, 16))
+        self.label_4.setGeometry(QtCore.QRect(11, 66, 31, 16))
         self.label_4.setObjectName(_fromUtf8("label_4"))
         self.lineEdit_5 = QtGui.QLineEdit(self.groupBox)
         self.lineEdit_5.setGeometry(QtCore.QRect(11, 85, 129, 20))
@@ -98,7 +98,7 @@ class Ui_MainWindow(object):
 "<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
 "p, li { white-space: pre-wrap; }\n"
 "</style></head><body style=\" font-family:\'MS Shell Dlg 2\'; font-size:8.25pt; font-weight:400; font-style:normal;\">\n"
-"<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-size:8pt;\"><br /></p></body></html>", None))
+"<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-family:\'OpenSansEmoji\'; font-size:8pt;\"><br /></p></body></html>", None))
         self.lineEdit.setPlaceholderText(_translate("MainWindow", "Type a message...", None))
         self.pushButton_2.setText(_translate("MainWindow", "Attach", None))
         self.pushButton.setText(_translate("MainWindow", "Send", None))

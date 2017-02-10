@@ -2,6 +2,7 @@
 from PyQt4 import QtGui, QtCore, QtNetwork
 from random import randint
 from time import strftime, gmtime
+from emoji import emojize
 
 import sys
 import ui_chat
@@ -185,7 +186,7 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         super(MainWindow, self).__init__(parent)
 
         # prevent resizing
-        self.setFixedSize(550, 276)
+        self.setFixedSize(550, 286)
 
         # build UI from the one generated from pyuic4
         self.setupUi(self)
@@ -242,7 +243,7 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         if msg:
             # append current user message to textBrowser and  clear the user input box
             timestamp = strftime("%H:%M", gmtime())
-            self.textBrowser.append("[" + str(timestamp) + "] " + "You>> " + msg)
+            self.textBrowser.append("[" + str(timestamp) + "] " + "You>> " + emojize(msg, use_aliases=True))
             self.lineEdit.clear()
 
             # write out the message to the client
@@ -254,7 +255,7 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
 
     def displayMessage(self, msg):
         timestamp = strftime("%H:%M", gmtime())
-        self.textBrowser.append("[" + str(timestamp) + "] " + "Anonymous>> " + msg)
+        self.textBrowser.append("[" + str(timestamp) + "] " + "Anonymous>> " + emojize(str(msg, use_aliases=True)))
 
     def displayConnectionStatus(self, status):
         if status is 0:
@@ -270,12 +271,19 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
 if __name__ == "__main__":
     app = QtGui.QApplication(sys.argv)
 
+    # using custom fonts
+    QtGui.QFontDatabase().addApplicationFont("OpenSansEmoji.ttf")
+    font = QtGui.QFont("OpenSansEmoji")
+    font.setPointSize(10)
+    app.setFont(font)
+
     # setting app icon
     app.setWindowIcon(QtGui.QIcon('D.png'))
     appId = u'dollars.chat.app'  # arbitrary string
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(appId)
 
     chat = MainWindow()
+
     chat.show()
 
     app.exec_()
