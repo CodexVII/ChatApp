@@ -181,6 +181,7 @@ p, li { white-space: pre-wrap; }
      <string>Menu</string>
     </property>
     <addaction name="actionConnect"/>
+    <addaction name="actionAbout"/>
    </widget>
    <addaction name="menuMenu"/>
   </widget>
@@ -197,7 +198,12 @@ p, li { white-space: pre-wrap; }
   </action>
   <action name="actionConnect">
    <property name="text">
-    <string>Connect</string>
+    <string>Connect..</string>
+   </property>
+  </action>
+  <action name="actionAbout">
+   <property name="text">
+    <string>About</string>
    </property>
   </action>
  </widget>

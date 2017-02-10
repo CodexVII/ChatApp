@@ -5,8 +5,7 @@ from time import strftime, gmtime
 from emoji import emojize
 
 import sys
-import ui_chat
-import ui_connect
+import ui_chat, ui_connect, ui_about
 import ctypes
 
 
@@ -134,6 +133,16 @@ class Communication(QtCore.QObject):
             # alert the paired socket about the listening port by sending a message
             self.write("2", str(self.tcpServer.serverPort()))
 
+class AboutDialog(QtGui.QDialog, ui_about.Ui_Dialog):
+    def __init__(self, parent):
+        super(AboutDialog, self).__init__(parent)
+        self.setupUi(self)
+
+        # keep focus fixed to this window
+        self.setModal(True)
+
+        # prevent resizing
+        self.setFixedSize(437, 188)
 
 class ConnectDialog(QtGui.QDialog, ui_connect.Ui_Dialog):
     # SIGNALS
@@ -142,6 +151,9 @@ class ConnectDialog(QtGui.QDialog, ui_connect.Ui_Dialog):
     def __init__(self, parent):
         super(ConnectDialog, self).__init__(parent)
         self.setupUi(self)
+
+        # keep focus fixed to this window
+        self.setModal(True)
 
         # prevent resizing
         self.setFixedSize(254, 96)
@@ -191,8 +203,9 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         # build UI from the one generated from pyuic4
         self.setupUi(self)
 
-        # create a dialog which will become a popup
+        # Extra dialogs
         self.connectDialog = ConnectDialog(self)
+        self.aboutDialog = AboutDialog(self)
 
         # handles all communication logic
         self.comm = Communication(self)
@@ -210,6 +223,7 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         self.lineEdit.returnPressed.connect(self.sendMessage)
         self.lineEdit.textChanged.connect(self.on_message_update)
         self.actionConnect.triggered.connect(self.on_connect_triggered)
+        self.actionAbout.triggered.connect(self.on_about_triggered)
         self.connectDialog.inputReady.connect(self.on_connect_info_ready)
         self.comm.messageReady.connect(lambda: self.displayMessage(self.comm.msg))
         self.comm.pairComplete.connect(lambda: self.displayConnectionStatus(self.comm.pairStatus))
@@ -228,6 +242,9 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
     def on_connect_triggered(self):
         # pop up the connection dialog
         self.connectDialog.show()
+
+    def on_about_triggered(self):
+        self.aboutDialog.show()
 
     def on_connect_info_ready(self):
         # ensure that each connection/reconnect is a fresh one
@@ -315,7 +332,5 @@ if __name__ == "__main__":
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(appId)
 
     chat = MainWindow()
-
     chat.show()
-
     app.exec_()

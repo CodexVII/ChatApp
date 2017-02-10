@@ -86,7 +86,10 @@ class Ui_MainWindow(object):
         self.actionSave.setObjectName(_fromUtf8("actionSave"))
         self.actionConnect = QtGui.QAction(MainWindow)
         self.actionConnect.setObjectName(_fromUtf8("actionConnect"))
+        self.actionAbout = QtGui.QAction(MainWindow)
+        self.actionAbout.setObjectName(_fromUtf8("actionAbout"))
         self.menuMenu.addAction(self.actionConnect)
+        self.menuMenu.addAction(self.actionAbout)
         self.menuBar.addAction(self.menuMenu.menuAction())
 
         self.retranslateUi(MainWindow)
@@ -109,5 +112,6 @@ class Ui_MainWindow(object):
         self.menuMenu.setTitle(_translate("MainWindow", "Menu", None))
         self.actionLogout.setText(_translate("MainWindow", "Logout", None))
         self.actionSave.setText(_translate("MainWindow", "Save", None))
-        self.actionConnect.setText(_translate("MainWindow", "Connect", None))
+        self.actionConnect.setText(_translate("MainWindow", "Connect..", None))
+        self.actionAbout.setText(_translate("MainWindow", "About", None))
 
