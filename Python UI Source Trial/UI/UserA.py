@@ -133,6 +133,7 @@ class Communication(QtCore.QObject):
             # alert the paired socket about the listening port by sending a message
             self.write("2", str(self.tcpServer.serverPort()))
 
+
 class AboutDialog(QtGui.QDialog, ui_about.Ui_Dialog):
     def __init__(self, parent):
         super(AboutDialog, self).__init__(parent)
@@ -143,6 +144,7 @@ class AboutDialog(QtGui.QDialog, ui_about.Ui_Dialog):
 
         # prevent resizing
         self.setFixedSize(437, 188)
+
 
 class ConnectDialog(QtGui.QDialog, ui_connect.Ui_Dialog):
     # SIGNALS
@@ -290,17 +292,15 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
             # add message to history
             self.recordMessage(msg)
 
-
-
     def recordMessage(self, msg):
         # store message into history
         self.history.append(msg)
-        self.currMsgIndex = len(self.history)-1
+        self.currMsgIndex = len(self.history) - 1
         self.currMsgIndex += 1
 
     def attachImg(self):
-        QtGui.QFileDialog.getOpenFileName(self, 'Open file',
-                                          'c:\\', "Image files (*.jpg *.gif *.png)")
+        path = QtGui.QFileDialog.getOpenFileName(self, 'Open file',
+                                                 'c:\\', "Image files (*.jpg *.gif *.png)")
 
     def displayMessage(self, msg):
         timestamp = strftime("%H:%M", gmtime())
