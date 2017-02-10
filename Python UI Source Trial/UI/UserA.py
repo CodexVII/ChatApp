@@ -270,17 +270,15 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
             # write out the message to the client
             self.comm.write("1", msg)
 
-        # add message to history
-        self.recordMessage(msg, True)
+            # add message to history
+            self.recordMessage(msg)
 
-    def recordMessage(self, msg, new):
-        # if the message is new, set the index of the message to the end of the current list
-        # doing this will set the index in the correct position for when the new msg is added
-        if new:
-            self.currMsgIndex = len(self.history)
 
+
+    def recordMessage(self, msg):
         # store message into history
         self.history.append(msg)
+        self.currMsgIndex = len(self.history)-1
         self.currMsgIndex += 1
 
     def attachImg(self):
