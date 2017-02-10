@@ -200,6 +200,10 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         # update the port number in GUI with listening port
         self.lineEdit_5.setText(str(self.comm.tcpServer.serverPort()))
 
+        # keep track of all sent messages
+        self.history = []
+        self.currMsgIndex = -1
+
         # connecting SIGNALS to SLOTS
         self.pushButton.clicked.connect(self.sendMessage)
         self.pushButton_2.clicked.connect(self.attachImg)
@@ -233,6 +237,23 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         # get the connection details from the connection dialog
         self.comm.pair(self.connectDialog.lineEdit.text(), int(self.connectDialog.lineEdit_2.text()))
 
+    #
+    def keyPressEvent(self, event):
+        # get current key
+        key = event.key()
+
+        # new messages will be at the very end of the list so we work backwards when retrieving old messages
+        if key == QtCore.Qt.Key_Up:
+            # check that we won't go below 0 once we decrement
+            if self.currMsgIndex > 0:
+                self.currMsgIndex -= 1
+                self.lineEdit.setText(self.history[self.currMsgIndex])  # get previous message
+        elif key == QtCore.Qt.Key_Down:
+            # check that we are not trying to access a message outside the bounds of the list
+            if self.currMsgIndex < len(self.history) - 1:
+                self.currMsgIndex += 1
+                self.lineEdit.setText(self.history[self.currMsgIndex])
+
     # send out a message to the server whenever the user hits
     # the 'send' button. It will take in whatever is on the
     # LineEdit box and write it into    a socket
@@ -249,13 +270,26 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
             # write out the message to the client
             self.comm.write("1", msg)
 
+        # add message to history
+        self.recordMessage(msg, True)
+
+    def recordMessage(self, msg, new):
+        # if the message is new, set the index of the message to the end of the current list
+        # doing this will set the index in the correct position for when the new msg is added
+        if new:
+            self.currMsgIndex = len(self.history)
+
+        # store message into history
+        self.history.append(msg)
+        self.currMsgIndex += 1
+
     def attachImg(self):
         QtGui.QFileDialog.getOpenFileName(self, 'Open file',
                                           'c:\\', "Image files (*.jpg *.gif *.png)")
 
     def displayMessage(self, msg):
         timestamp = strftime("%H:%M", gmtime())
-        self.textBrowser.append("[" + str(timestamp) + "] " + "Anonymous>> " + emojize(str(msg, use_aliases=True)))
+        self.textBrowser.append("[" + str(timestamp) + "] " + "Anonymous>> " + emojize(str(msg), use_aliases=True))
 
     def displayConnectionStatus(self, status):
         if status is 0:
