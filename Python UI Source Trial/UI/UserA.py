@@ -12,7 +12,7 @@ import hashlib
 
 # Inherit QObject to use signals
 class Communication(QtCore.QObject):
-    HEADER_SIZE = 3  # in bytes
+    HEADER_SIZE = 9  # in bytes
     CONNECTED = 1  # 1=connected, 0=not connected
 
     # SIGNALS
@@ -65,30 +65,31 @@ class Communication(QtCore.QObject):
         # prepare the output stream
         out = QtCore.QDataStream(block, QtCore.QIODevice.WriteOnly)
         out.setVersion(QtCore.QDataStream.Qt_4_0)
-        out.writeUInt16(0)
+        out.writeUInt64(long(0))
         out.writeUInt8(payload_t)
 
         # determine which procedure to use when writing to the datastream
         if payload_t is "0" or payload_t is "1":
             # payload is a string
             out.writeQString(payload)
-        else:
+        elif payload_t is "2":
             # payload is a byte array
-            out.writeBytes(payload)
+            print "Writing file"
+            print out.writeBytes(payload)
 
         # go back to the start and write the size of the payload
         out.device().seek(0)
-        out.writeUInt16(block.size() - self.HEADER_SIZE)
+        out.writeUInt64(long(block.size() - self.HEADER_SIZE))
 
         # write out the message to the socket which is linked to the client
         self.tcpSocket_request.write(block)
-
         # wait until this has finished writing
-        if not self.tcpSocket_request.waitForBytesWritten():
+        if not self.tcpSocket_request .waitForBytesWritten():
             print "Failed to write in time"
 
     # returns QDataStream object for processing
     def read(self):
+
         # Constructs a data stream that uses the I/O device d.
         instr = QtCore.QDataStream(self.tcpSocket_receive)
         instr.setVersion(QtCore.QDataStream.Qt_4_0)
@@ -102,9 +103,11 @@ class Communication(QtCore.QObject):
 
             # read the size of the byte array payload from server.
             # Once the first flag is consumed, read the message type on the payload
-            self.blockSize = instr.readUInt16()
+            self.blockSize = instr.readUInt64()
             self.msgType = instr.readUInt8()
 
+            print "available bytes: " + str(self.tcpSocket_receive.bytesAvailable())
+            print "blockSize: " + str(self.blockSize)
         # the data is incomplete so we return until the data is good
         if self.tcpSocket_receive.bytesAvailable() < self.blockSize:
             return
@@ -140,6 +143,7 @@ class Communication(QtCore.QObject):
 
         # reset the block size for next msg to be read
         self.blockSize = 0
+        self.msgType = -1
 
     def pair(self, host, port):
         # allows for connection between two chatting programmes
@@ -338,7 +342,10 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
 
         # send out the file and reset the file attached flag
         self.comm.write("2", self.rawFile)
+
+        # file has been sent. do tear down to prepare for next file
         self.fileAttached = False
+        self.rawFile = None
 
     def displayMessage(self, msg, sender):
         timestamp = strftime("%H:%M", gmtime())
