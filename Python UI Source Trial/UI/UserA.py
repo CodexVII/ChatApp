@@ -12,8 +12,9 @@ import hashlib
 
 # Inherit QObject to use signals
 class Communication(QtCore.QObject):
-    HEADER_SIZE = 9  # in bytes
-    CONNECTED = 1  # 1=connected, 0=not connected
+    Port_t, Message_t, File_t = range(3)  # Message types
+    HEADER_SIZE = 9  # 8 bytes for payload size, 1 byte for payload type
+    CONNECTED = False  # used to prevent infinite pairing loop
 
     # SIGNALS
     messageReceived = QtCore.pyqtSignal()
@@ -25,15 +26,14 @@ class Communication(QtCore.QObject):
         super(Communication, self).__init__(parent)
         # IO variables
         self.blockSize = 0
-        self.msgType = 0
-        self.pairPort = 0
+        self.msgType = -1
+        self.pairPort = -1
 
         # Variables to be passed by signals
         self.msg = None
         self.fileHash = None
-        self.qFile = None
-        self.listenStatus = None
-        self.pairStatus = None
+        self.rawFile = None
+        self.listenPortLive = False
 
         # One TcpSocket is for the server portion of the program (_receive)
         # the other is for the client portion of the program (_request)
@@ -44,8 +44,11 @@ class Communication(QtCore.QObject):
         # begin listening at a random port
         if not self.tcpServer.listen(QtNetwork.QHostAddress("localhost"), randint(5000, 65535)):
             # server couldn't start
-            self.listenStatus = 1
+            self.listenPortLive = False
             self.listenError.emit()
+        else:
+            # server started successfully
+            self.listenPortLive = True
 
         # connecting SIGNALS and SLOTS
         self.tcpServer.newConnection.connect(self.incomingClient)
@@ -65,17 +68,16 @@ class Communication(QtCore.QObject):
         # prepare the output stream
         out = QtCore.QDataStream(block, QtCore.QIODevice.WriteOnly)
         out.setVersion(QtCore.QDataStream.Qt_4_0)
-        out.writeUInt64(long(0))
-        out.writeUInt8(payload_t)
+        out.writeUInt64(long(0))  # placeholder for payload size
+        out.writeUInt8(str(payload_t))  # payload_t is int, constructor only takes str
 
         # determine which procedure to use when writing to the datastream
-        if payload_t is "0" or payload_t is "1":
+        if payload_t == self.Port_t or payload_t == self.Message_t:
             # payload is a string
-            out.writeQString(payload)
-        elif payload_t is "2":
+            out.writeString(payload)
+        elif payload_t is self.File_t:
             # payload is a byte array
-            print "Writing file"
-            print out.writeBytes(payload)
+            out.writeBytes(payload)
 
         # go back to the start and write the size of the payload
         out.device().seek(0)
@@ -83,13 +85,13 @@ class Communication(QtCore.QObject):
 
         # write out the message to the socket which is linked to the client
         self.tcpSocket_request.write(block)
+
         # wait until this has finished writing
-        if not self.tcpSocket_request .waitForBytesWritten():
+        if not self.tcpSocket_request.waitForBytesWritten():
             print "Failed to write in time"
 
     # returns QDataStream object for processing
     def read(self):
-
         # Constructs a data stream that uses the I/O device d.
         instr = QtCore.QDataStream(self.tcpSocket_receive)
         instr.setVersion(QtCore.QDataStream.Qt_4_0)
@@ -104,41 +106,38 @@ class Communication(QtCore.QObject):
             # read the size of the byte array payload from server.
             # Once the first flag is consumed, read the message type on the payload
             self.blockSize = instr.readUInt64()
-            self.msgType = instr.readUInt8()
+            self.msgType = int(instr.readUInt8())
 
-            print "available bytes: " + str(self.tcpSocket_receive.bytesAvailable())
-            print "blockSize: " + str(self.blockSize)
         # the data is incomplete so we return until the data is good
         if self.tcpSocket_receive.bytesAvailable() < self.blockSize:
             return
 
         # sort out what to do with the received data
-        # normal message
+        if self.msgType == self.Port_t:
+            # message contains port information
 
-        # message contains port information
-        if self.msgType is "0":
             # save the port to set the request socket to point at that port
             # sometimes required.. ie. over local network this seemed to become an issue.. fine local
-            # self.pairPort = unicode(instr.readQString().toUtf8(), encoding="UTF-8")
-            self.pairPort = instr.readQString()
+            self.pairPort = instr.readString()
             self.pair(self.tcpSocket_receive.peerAddress(), int(self.pairPort))
+
             # pairing done, let connected objects know
             self.pairComplete.emit()
-        elif self.msgType is "1":
+        elif self.msgType == self.Message_t:
+            # normal message
             # read in the message and inform connected objects about the contents
-            self.msg = instr.readQString()
+            self.msg = instr.readString()
             self.messageReceived.emit()
-        elif self.msgType is "2":
+        elif self.msgType == self.File_t:
             # payload contains file
-            print "Received file"
-            rawFile = instr.readBytes()
-            file = QtCore.QFile("C:/Users/keita/Desktop/received_file")
+            self.rawFile = instr.readBytes()
+            file= QtCore.QFile("C:/Users/keita/Desktop/received_file")
             file.open(QtCore.QIODevice.WriteOnly)
-            file.write(rawFile)
+            file.write(self.rawFile)
             file.close()
 
             # self.qFile = QtCore.QFile(rawFile)
-            self.fileHash = hashlib.sha256(rawFile).hexdigest()
+            self.fileHash = hashlib.sha256(self.rawFile).hexdigest()
             self.fileReceived.emit()
 
         # reset the block size for next msg to be read
@@ -148,18 +147,17 @@ class Communication(QtCore.QObject):
     def pair(self, host, port):
         # allows for connection between two chatting programmes
         # possibly the place where AES, SHA and RSA will take place
-        if self.CONNECTED == 1:
-            self.tcpSocket_request.connectToHost(host, port)
+        if not self.CONNECTED:
+            self.tcpSocket_request.connectToHost(host, int(port))
             if self.tcpSocket_request.waitForConnected():
                 # connection succeeded
-                self.pairStatus = 0
-                self.CONNECTED = 0
+                self.CONNECTED = True
             else:
                 # connection failed
-                self.pairStatus = 1
+                self.CONNECTED = False
 
             # alert the paired socket about the listening port by sending a message
-            self.write("0", str(self.tcpServer.serverPort()))
+            self.write(self.Port_t, str(self.tcpServer.serverPort()))
 
 
 class AboutDialog(QtGui.QDialog, ui_about.Ui_Dialog):
@@ -263,8 +261,8 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         self.actionAbout.triggered.connect(self.on_about_triggered)
         self.connectDialog.inputReady.connect(self.on_connect_info_ready)
         self.comm.messageReceived.connect(lambda: self.displayMessage(self.comm.msg, sender=False))
-        self.comm.pairComplete.connect(lambda: self.displayConnectionStatus(self.comm.pairStatus))
-        self.comm.listenError.connect(lambda: self.displayListenStaus(self.comm.listenStatus))
+        self.comm.pairComplete.connect(lambda: self.displayConnectionStatus(self.comm.CONNECTED))
+        self.comm.listenError.connect(lambda: self.displayListenStaus(self.comm.listenPortLive))
         self.comm.fileReceived.connect(
             lambda: self.displayMessage("Received file with hash: " + self.comm.fileHash, sender=True))
 
@@ -288,10 +286,10 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
     def on_connect_info_ready(self):
         # ensure that each connection/reconnect is a fresh one
         self.comm.tcpSocket_request.abort()
-        self.comm.CONNECTED = 1
+        self.comm.CONNECTED = False
 
         # get the connection details from the connection dialog
-        self.comm.pair(self.connectDialog.lineEdit.text(), int(self.connectDialog.lineEdit_2.text()))
+        self.comm.pair(self.connectDialog.lineEdit.text(), self.connectDialog.lineEdit_2.text())
 
     def on_send_triggered(self):
         self.sendMessage()
@@ -329,7 +327,7 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
             self.lineEdit.clear()
 
             # write out the message to the client
-            self.comm.write("1", self.msg)
+            self.comm.write(self.comm.Message_t, self.msg)
 
             # add message to history
             self.recordMessage(self.msg)
@@ -338,10 +336,10 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         # show the
         fileHash = hashlib.sha256(self.rawFile).hexdigest()
         self.displayMessage("Sending file with hash: " + fileHash, sender=True)
-        self.comm.write("1", "Sending file with hash: " + fileHash)
+        self.comm.write(self.comm.Message_t, "Sending file with hash: " + fileHash)
 
         # send out the file and reset the file attached flag
-        self.comm.write("2", self.rawFile)
+        self.comm.write(self.comm.File_t, self.rawFile)
 
         # file has been sent. do tear down to prepare for next file
         self.fileAttached = False
@@ -381,8 +379,8 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
 
             # self.statusBar.showMessage("Failed to attach file")
 
-    def displayConnectionStatus(self, status):
-        if status is 0:
+    def displayConnectionStatus(self, connected):
+        if connected:
             self.statusBar.showMessage("Connected")
         else:
             self.statusBar.showMessage("Failed to connect")
