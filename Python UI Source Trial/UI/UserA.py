@@ -7,6 +7,7 @@ from emoji import emojize
 import sys
 import ui_chat, ui_connect, ui_about
 import ctypes
+import hashlib
 
 
 # Inherit QObject to use signals
@@ -15,7 +16,8 @@ class Communication(QtCore.QObject):
     CONNECTED = 1  # 1=connected, 0=not connected
 
     # SIGNALS
-    messageReady = QtCore.pyqtSignal()
+    messageReceived = QtCore.pyqtSignal()
+    fileReceived = QtCore.pyqtSignal()
     listenError = QtCore.pyqtSignal()
     pairComplete = QtCore.pyqtSignal()
 
@@ -28,6 +30,8 @@ class Communication(QtCore.QObject):
 
         # Variables to be passed by signals
         self.msg = None
+        self.fileHash = None
+        self.qFile = None
         self.listenStatus = None
         self.pairStatus = None
 
@@ -64,13 +68,24 @@ class Communication(QtCore.QObject):
         out.writeUInt16(0)
         out.writeUInt8(payload_t)
 
-        # write the server port into the message
-        out.writeQString(str(payload))
+        # determine which procedure to use when writing to the datastream
+        if payload_t is "0" or payload_t is "1":
+            # payload is a string
+            out.writeQString(payload)
+        else:
+            # payload is a byte array
+            out.writeBytes(payload)
+
+        # go back to the start and write the size of the payload
         out.device().seek(0)
         out.writeUInt16(block.size() - self.HEADER_SIZE)
 
         # write out the message to the socket which is linked to the client
         self.tcpSocket_request.write(block)
+
+        # wait until this has finished writing
+        if not self.tcpSocket_request.waitForBytesWritten():
+            print "Failed to write in time"
 
     # returns QDataStream object for processing
     def read(self):
@@ -95,21 +110,33 @@ class Communication(QtCore.QObject):
             return
 
         # sort out what to do with the received data
-        self.processReceivedMessage(instr)
-
-    # process the message depending on its type
-    def processReceivedMessage(self, instr):
         # normal message
-        if self.msgType is "1":
-            # read in the message and inform connected objects about the contents
-            self.msg = instr.readQString()
-            self.messageReady.emit()
 
         # message contains port information
-        elif self.msgType is "2":
+        if self.msgType is "0":
             # save the port to set the request socket to point at that port
-            self.pairPort = unicode(instr.readQString().toUtf8(), encoding="UTF-8")
+            # sometimes required.. ie. over local network this seemed to become an issue.. fine local
+            # self.pairPort = unicode(instr.readQString().toUtf8(), encoding="UTF-8")
+            self.pairPort = instr.readQString()
             self.pair(self.tcpSocket_receive.peerAddress(), int(self.pairPort))
+            # pairing done, let connected objects know
+            self.pairComplete.emit()
+        elif self.msgType is "1":
+            # read in the message and inform connected objects about the contents
+            self.msg = instr.readQString()
+            self.messageReceived.emit()
+        elif self.msgType is "2":
+            # payload contains file
+            print "Received file"
+            rawFile = instr.readBytes()
+            file = QtCore.QFile("C:/Users/keita/Desktop/received_file")
+            file.open(QtCore.QIODevice.WriteOnly)
+            file.write(rawFile)
+            file.close()
+
+            # self.qFile = QtCore.QFile(rawFile)
+            self.fileHash = hashlib.sha256(rawFile).hexdigest()
+            self.fileReceived.emit()
 
         # reset the block size for next msg to be read
         self.blockSize = 0
@@ -127,11 +154,8 @@ class Communication(QtCore.QObject):
                 # connection failed
                 self.pairStatus = 1
 
-            # pairing done, let connected objects know
-            self.pairComplete.emit()
-
             # alert the paired socket about the listening port by sending a message
-            self.write("2", str(self.tcpServer.serverPort()))
+            self.write("0", str(self.tcpServer.serverPort()))
 
 
 class AboutDialog(QtGui.QDialog, ui_about.Ui_Dialog):
@@ -219,17 +243,26 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         self.history = []
         self.currMsgIndex = -1
 
+        # sending data
+        self.msg = None
+        self.rawFile = None
+
+        # flg to check if a file is attached to the message
+        self.fileAttached = False
+
         # connecting SIGNALS to SLOTS
-        self.pushButton.clicked.connect(self.sendMessage)
-        self.pushButton_2.clicked.connect(self.attachImg)
-        self.lineEdit.returnPressed.connect(self.sendMessage)
+        self.pushButton.clicked.connect(self.on_send_triggered)
+        self.pushButton_2.clicked.connect(self.attachFile)
+        self.lineEdit.returnPressed.connect(self.on_send_triggered)
         self.lineEdit.textChanged.connect(self.on_message_update)
         self.actionConnect.triggered.connect(self.on_connect_triggered)
         self.actionAbout.triggered.connect(self.on_about_triggered)
         self.connectDialog.inputReady.connect(self.on_connect_info_ready)
-        self.comm.messageReady.connect(lambda: self.displayMessage(self.comm.msg))
+        self.comm.messageReceived.connect(lambda: self.displayMessage(self.comm.msg, sender=False))
         self.comm.pairComplete.connect(lambda: self.displayConnectionStatus(self.comm.pairStatus))
         self.comm.listenError.connect(lambda: self.displayListenStaus(self.comm.listenStatus))
+        self.comm.fileReceived.connect(
+            lambda: self.displayMessage("Received file with hash: " + self.comm.fileHash, sender=True))
 
         # user hasn't placed any input yet so disable the button
         self.pushButton.setDisabled(True)
@@ -256,7 +289,13 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         # get the connection details from the connection dialog
         self.comm.pair(self.connectDialog.lineEdit.text(), int(self.connectDialog.lineEdit_2.text()))
 
-    #
+    def on_send_triggered(self):
+        self.sendMessage()
+
+        # check if there is a file attached before sending it out
+        if self.fileAttached:
+            self.sendFile()
+
     def keyPressEvent(self, event):
         # get current key
         key = event.key()
@@ -277,20 +316,36 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
     # the 'send' button. It will take in whatever is on the
     # LineEdit box and write it into    a socket
     def sendMessage(self):
-        msg = str(self.lineEdit.text())
+        self.msg = self.lineEdit.text()
 
         # check if the msg is empty
-        if msg:
+        if self.msg:
             # append current user message to textBrowser and  clear the user input box
-            timestamp = strftime("%H:%M", gmtime())
-            self.textBrowser.append("[" + str(timestamp) + "] " + "You>> " + emojize(msg, use_aliases=True))
+            self.displayMessage(self.msg, sender=True)
             self.lineEdit.clear()
 
             # write out the message to the client
-            self.comm.write("1", msg)
+            self.comm.write("1", self.msg)
 
             # add message to history
-            self.recordMessage(msg)
+            self.recordMessage(self.msg)
+
+    def sendFile(self):
+        # show the
+        fileHash = hashlib.sha256(self.rawFile).hexdigest()
+        self.displayMessage("Sending file with hash: " + fileHash, sender=True)
+        self.comm.write("1", "Sending file with hash: " + fileHash)
+
+        # send out the file and reset the file attached flag
+        self.comm.write("2", self.rawFile)
+        self.fileAttached = False
+
+    def displayMessage(self, msg, sender):
+        timestamp = strftime("%H:%M", gmtime())
+        if sender:
+            self.textBrowser.append("[" + str(timestamp) + "] " + "You>> " + emojize(str(msg), use_aliases=True))
+        else:
+            self.textBrowser.append("[" + str(timestamp) + "] " + "Anonymous>> " + emojize(str(msg), use_aliases=True))
 
     def recordMessage(self, msg):
         # store message into history
@@ -298,13 +353,26 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         self.currMsgIndex = len(self.history) - 1
         self.currMsgIndex += 1
 
-    def attachImg(self):
+    def attachFile(self):
+        # get the path to the desired file to be attached
         path = QtGui.QFileDialog.getOpenFileName(self, 'Open file',
-                                                 'c:\\', "Image files (*.jpg *.gif *.png)")
+                                                 'c:\\', "Any (*)")
 
-    def displayMessage(self, msg):
-        timestamp = strftime("%H:%M", gmtime())
-        self.textBrowser.append("[" + str(timestamp) + "] " + "Anonymous>> " + emojize(str(msg), use_aliases=True))
+        # if the path isn't empty, set the file flag to true and prep the file for transfer
+        if path:
+            # self.statusBar.showMessage("File attached")
+            print "File Attached"
+            self.fileAttached = True
+            attachedFile = QtCore.QFile(path)
+
+            # Open the file first
+            if not attachedFile.open(QtCore.QIODevice.ReadOnly):
+                print "Could not open file"
+
+            # read the file and prepare for sending
+            self.rawFile = attachedFile.readAll()
+
+            # self.statusBar.showMessage("Failed to attach file")
 
     def displayConnectionStatus(self, status):
         if status is 0:
@@ -328,7 +396,7 @@ if __name__ == "__main__":
 
     # setting app icon
     app.setWindowIcon(QtGui.QIcon('D.png'))
-    appId = u'dollars.chat.app'  # arbitrary string
+    appId = u'dollars.chat.app'
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(appId)
 
     chat = MainWindow()
