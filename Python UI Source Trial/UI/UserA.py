@@ -140,8 +140,6 @@ class Communication(QtCore.QThread):
             print "Msg type: " + str(self.msgType)
         # the data is incomplete so we return until the data is good
         if self.tcpSocket_receive.bytesAvailable() < self.blockSize:
-            # print "Bytes available: " + str(self.tcpSocket_receive.bytesAvailable())
-            # print "Block size: " + str(self.blockSize)
             print "message incomplete"
             return
 
@@ -206,6 +204,7 @@ class Communication(QtCore.QThread):
         # attempt to connect to the listening port of the other user
         self.write(Config.Port_t, str(self.tcpServer.serverPort()))
 
+
 class AboutDialog(QtGui.QDialog, ui_about.Ui_Dialog):
     def __init__(self, parent):
         super(AboutDialog, self).__init__(parent)
@@ -267,7 +266,6 @@ class ConnectDialog(QtGui.QDialog, ui_connect.Ui_Dialog):
 
 
 # middle man between the GUI class and TCP communication
-
 class Logic(QtCore.QObject):
     outgoingMessageReady = QtCore.pyqtSignal(int, QtCore.QString)
     messageReceived = QtCore.pyqtSignal(str)
@@ -277,7 +275,6 @@ class Logic(QtCore.QObject):
     fileAttached = QtCore.pyqtSignal(str)
     forwardFileDetails = QtCore.pyqtSignal(str, int, str)
     forwardConnectionStatus = QtCore.pyqtSignal(str)
-    # pairComplete = QtCore.pyqtSignal(str)
     pairSocketStateChanged = QtCore.pyqtSignal(str)
 
     def __init__(self):
@@ -295,7 +292,6 @@ class Logic(QtCore.QObject):
         # flg to check if a file is attached to the message
         self.fileAttached = False
 
-
         self.comm.messageReceived.connect(self.forwardReceivedMessage)
         self.comm.pairStateChanged.connect(self.on_pair_state_changed)
         self.comm.listenError.connect(lambda: self.displayListenStaus(self.comm.listenPortLive))
@@ -308,7 +304,6 @@ class Logic(QtCore.QObject):
         self.outgoingMessageReady.connect(self.comm.write)
         self.fileReadyForWrite.connect(self.comm.write)
         self.pairRequest.connect(self.comm.pair)
-        # self.doBenchTest.connect(self.comm.benchTest)
 
         self.commThread.started.connect(self.comm.run)
         self.commThread.start()
@@ -325,14 +320,6 @@ class Logic(QtCore.QObject):
         elif state == 6:
             self.pairSocketStateChanged.emit("Disconnecting..")
 
-    #
-    # def on_pair_success(self):
-    #     print "connection was successful"
-    #     self.pairComplete.emit("Connected")
-    #
-    # def on_pair_failed(self):
-    #     self.pairComplete.emit("Failed to connect")
-    #
     def on_fileReceived(self, name, size, hash):
         print "received file"
         self.forwardFileDetails.emit(name, size, hash)
@@ -340,23 +327,15 @@ class Logic(QtCore.QObject):
     def sendFile(self):
         # inform the user about the incoming file
         self.outgoingMessageReady.emit(Config.Message_t, "Sending file with hash: " + self.fileHash)
-        # self.comm.write(self.comm.Message_t, "Sending file with hash: " + self.fileHash)
 
         # first send the file name
         self.outgoingMessageReady.emit(Config.FileName_t, self.fileName)
-        # self.comm.write(self.comm.FileName_t, self.fileName)
 
         # send out the file and reset the file attached flag
         self.fileReadyForWrite.emit(Config.FileData_t, self.rawFile)
-        # self.comm.write(self.comm.FileData_t, self.rawFile)
-
-        # self.lineEdit.setText("Sending file with hash: " + self.fileHash)
 
         # file has been sent. do tear down to prepare for next file
         self.fileAttached = False
-        # self.rawFile = None
-        # self.fileName = ""
-        # self.fileSize = 0
 
     def attachFile(self, path):
         # if the path isn't empty, set the file flag to true and prep the file for transfer
@@ -381,8 +360,6 @@ class Logic(QtCore.QObject):
             self.fileHash = hashlib.sha256(self.rawFile).hexdigest()
 
             return True
-            # give feedback to user that file has been attached
-            # self.showFileInfoDialog(self.fileName, self.fileSize, self.fileHash, sender=True)
 
         return False
 
@@ -413,17 +390,7 @@ class Logic(QtCore.QObject):
 
         # check if the msg is empty
         if msg:
-            # append current user message to textBrowser and  clear the user input box
-            # self.displayMessage(msg, sender=True)
-            # self.lineEdit.clear()
-
-            # write out the message to the client
             self.outgoingMessageReady.emit(Config.Message_t, msg)
-            # self.messageReadyForWrite.emit(self.comm.Message_t, msg)
-            # self.comm.write(self.comm.Message_t, msg)
-
-            # add message to history
-            # self.recordMessage(msg)
 
     def on_send_triggered(self):
         self.sendMessage()
@@ -462,7 +429,7 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         super(MainWindow, self).__init__(parent)
 
         # prevent resizing
-        self.setFixedSize(652, 359)
+        self.setFixedSize(652, 358)
 
         # build UI from the one generated from pyuic4
         self.setupUi(self)
@@ -495,6 +462,15 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
 
         # user hasn't placed any input yet so disable the button
         self.pushButton.setDisabled(True)
+
+        # set font for text box
+        QtGui.QFontDatabase().addApplicationFont("OpenSansEmoji.ttf")
+        self.textBrowser.setStyleSheet("""
+               .QTextBrowser {
+                   font-family: "OpenSansEmoji";
+                   font-size: 14px;
+                   }
+               """)
 
         print "Main GUI initialised with ID: " + str(int(QtCore.QThread.currentThreadId()))
 
@@ -620,12 +596,6 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
 if __name__ == "__main__":
     app = QtGui.QApplication(sys.argv)
 
-    # using custom fonts
-    QtGui.QFontDatabase().addApplicationFont("OpenSansEmoji.ttf")
-    font = QtGui.QFont("OpenSansEmoji")
-    font.setPointSize(10)
-    app.setFont(font)
-
     # setting app icon
     app.setWindowIcon(QtGui.QIcon('D.png'))
     appId = u'dollars.chat.app'
@@ -633,4 +603,4 @@ if __name__ == "__main__":
 
     chat = MainWindow()
     chat.show()
-    app.exec_()
+    exit(app.exec_())

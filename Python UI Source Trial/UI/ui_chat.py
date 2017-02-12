@@ -28,9 +28,6 @@ class Ui_MainWindow(object):
         MainWindow.resize(651, 356)
         self.centralwidget = QtGui.QWidget(MainWindow)
         self.centralwidget.setObjectName(_fromUtf8("centralwidget"))
-        self.textBrowser = QtGui.QTextBrowser(self.centralwidget)
-        self.textBrowser.setGeometry(QtCore.QRect(20, 10, 441, 271))
-        self.textBrowser.setObjectName(_fromUtf8("textBrowser"))
         self.lineEdit = QtGui.QLineEdit(self.centralwidget)
         self.lineEdit.setGeometry(QtCore.QRect(20, 290, 441, 21))
         self.lineEdit.setObjectName(_fromUtf8("lineEdit"))
@@ -67,7 +64,7 @@ class Ui_MainWindow(object):
         self.lineEdit_5.raise_()
         self.label_3.raise_()
         self.textBrowser_2 = QtGui.QTextBrowser(self.centralwidget)
-        self.textBrowser_2.setGeometry(QtCore.QRect(480, 250, 151, 31))
+        self.textBrowser_2.setGeometry(QtCore.QRect(480, 240, 151, 31))
         self.textBrowser_2.setStyleSheet(_fromUtf8("QTextBrowser{\n"
 "    background-color:transparent;\n"
 "    border:none\n"
@@ -75,6 +72,13 @@ class Ui_MainWindow(object):
         self.textBrowser_2.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         self.textBrowser_2.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         self.textBrowser_2.setObjectName(_fromUtf8("textBrowser_2"))
+        self.textBrowser = QtGui.QTextBrowser(self.centralwidget)
+        self.textBrowser.setGeometry(QtCore.QRect(20, 10, 441, 271))
+        self.textBrowser.setStyleSheet(_fromUtf8("QTextBrowser{\n"
+"    font-family: \"OpenSansEmoji\";\n"
+"    font-size: 15px;    \n"
+"}"))
+        self.textBrowser.setObjectName(_fromUtf8("textBrowser"))
         MainWindow.setCentralWidget(self.centralwidget)
         self.menuBar = QtGui.QMenuBar(MainWindow)
         self.menuBar.setGeometry(QtCore.QRect(0, 0, 651, 21))
@@ -102,11 +106,6 @@ class Ui_MainWindow(object):
 
     def retranslateUi(self, MainWindow):
         MainWindow.setWindowTitle(_translate("MainWindow", "DOLLARS  Chat", None))
-        self.textBrowser.setHtml(_translate("MainWindow", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
-"<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
-"p, li { white-space: pre-wrap; }\n"
-"</style></head><body style=\" font-family:\'MS Shell Dlg 2\'; font-size:8.25pt; font-weight:400; font-style:normal;\">\n"
-"<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-family:\'OpenSansEmoji\'; font-size:8pt;\"><br /></p></body></html>", None))
         self.lineEdit.setPlaceholderText(_translate("MainWindow", "Type a message...", None))
         self.pushButton_2.setText(_translate("MainWindow", "Attach", None))
         self.pushButton.setText(_translate("MainWindow", "Send", None))
@@ -119,6 +118,11 @@ class Ui_MainWindow(object):
 "p, li { white-space: pre-wrap; }\n"
 "</style></head><body style=\" font-family:\'MS Shell Dlg 2\'; font-size:8.25pt; font-weight:400; font-style:normal;\">\n"
 "<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-size:8pt;\"><br /></p></body></html>", None))
+        self.textBrowser.setHtml(_translate("MainWindow", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
+"<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
+"p, li { white-space: pre-wrap; }\n"
+"</style></head><body style=\" font-family:\'OpenSansEmoji\'; font-size:15px; font-weight:400; font-style:normal;\">\n"
+"<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-family:\'MS Shell Dlg 2\'; font-size:8pt;\"><br /></p></body></html>", None))
         self.menuMenu.setTitle(_translate("MainWindow", "Menu", None))
         self.actionLogout.setText(_translate("MainWindow", "Logout", None))
         self.actionSave.setText(_translate("MainWindow", "Save", None))
