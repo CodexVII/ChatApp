@@ -2,5 +2,6 @@
 <qresource>
     <file>D.png</file>
     <file>dollars_logo.jpg</file>
+    <file>OpenSansEmoji.ttf</file>
 </qresource>
 </RCC>
