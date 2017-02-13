@@ -51,15 +51,14 @@ class Communication(QtCore.QThread):
         self.tcpSocket_request = QtNetwork.QTcpSocket(self)
         self.tcpServer = QtNetwork.QTcpServer(self)
 
-    def run(self):
-        self.startTcpServer()
-
         # connecting SIGNALS and SLOTS
         self.tcpSocket_request.connected.connect(self.on_connection_accepted)
         self.tcpSocket_request.error.connect(self.on_connection_failed)
         self.tcpSocket_request.stateChanged.connect(self.on_connection_state_changed)
         self.tcpServer.newConnection.connect(self.incomingClient)
 
+    def run(self):
+        self.startTcpServer()
         QtCore.QThread.exec_(self)
 
     def on_connection_state_changed(self):
@@ -265,6 +264,52 @@ class ConnectDialog(QtGui.QDialog, ui_connect.Ui_Dialog):
             return False
 
 
+class FileIOThread(QtCore.QThread):
+    readComplete = QtCore.pyqtSignal(QtCore.QByteArray, str, int, str)
+    error = QtCore.pyqtSignal()
+
+    def __init__(self):
+        QtCore.QThread.__init__(self)
+
+    def run(self):
+        # run within its own event loop
+        QtCore.QThread.exec_(self)
+
+    def readFile(self, path):
+        print "Reading file"
+        attachedFile = QtCore.QFile(path)
+
+        # check that the file opens successfully
+        if not attachedFile.open(QtCore.QIODevice.ReadOnly):
+            return False
+
+        # get file info
+        fileInfo = QtCore.QFileInfo(attachedFile.fileName())
+
+        # read the file and prepare for sending
+        rawFile = attachedFile.readAll()
+
+        fileName = fileInfo.fileName()
+        fileSize = fileInfo.size() / 1000
+        fileHash = hashlib.sha256(rawFile).hexdigest()
+
+        self.readComplete.emit(rawFile, fileName, fileSize, fileHash)
+
+    def writeToFile(self, data):
+        pass
+
+    # return byte array
+    def bytesToFile(self, data, path):
+        # open file with given path (which includes file name)
+        file = QtCore.QFile(path)
+        file.open(QtCore.QIODevice.WriteOnly)
+
+        file.write(data)
+        file.close()
+
+        self.readComplete.emit()
+
+
 # middle man between the GUI class and TCP communication
 class Logic(QtCore.QObject):
     outgoingMessageReady = QtCore.pyqtSignal(int, QtCore.QString)
@@ -272,10 +317,12 @@ class Logic(QtCore.QObject):
     pairRequest = QtCore.pyqtSignal(str, str)
     fileReadyForWrite = QtCore.pyqtSignal(int, QtCore.QByteArray)
     forwardServerPort = QtCore.pyqtSignal(int)
-    fileAttached = QtCore.pyqtSignal(str)
+    fileAttached = QtCore.pyqtSignal()
     forwardFileDetails = QtCore.pyqtSignal(str, int, str)
     forwardConnectionStatus = QtCore.pyqtSignal(str)
     pairSocketStateChanged = QtCore.pyqtSignal(str)
+    readAttachedFile = QtCore.pyqtSignal(str)
+    fileRead = QtCore.pyqtSignal()
 
     def __init__(self):
         QtCore.QObject.__init__(self)
@@ -292,6 +339,7 @@ class Logic(QtCore.QObject):
         # flg to check if a file is attached to the message
         self.fileAttached = False
 
+        # connect comm signal/slots
         self.comm.messageReceived.connect(self.forwardReceivedMessage)
         self.comm.pairStateChanged.connect(self.on_pair_state_changed)
         self.comm.listenError.connect(lambda: self.displayListenStaus(self.comm.listenPortLive))
@@ -308,6 +356,17 @@ class Logic(QtCore.QObject):
         self.commThread.started.connect(self.comm.run)
         self.commThread.start()
 
+        # file IO stuff
+        self.fileIO = FileIOThread()
+        self.fileIO.readComplete.connect(self.on_fileRead)
+
+        self.fileIOThread = QtCore.QThread()
+        self.fileIO.moveToThread(self.fileIOThread)
+
+        self.readAttachedFile.connect(self.fileIO.readFile)
+        self.fileIOThread.started.connect(self.fileIO.run)
+        self.fileIOThread.start()
+
     def on_pair_state_changed(self, state):
         if state == 0:
             self.pairSocketStateChanged.emit("Disconnected")
@@ -323,6 +382,18 @@ class Logic(QtCore.QObject):
     def on_fileReceived(self, name, size, hash):
         print "received file"
         self.forwardFileDetails.emit(name, size, hash)
+
+    def on_fileRead(self, data, name, size, hash):
+        print "Got to on_fileReady"
+        # get the data
+        self.rawFile = data
+
+        # extract name, size and hash
+        self.fileName = name
+        self.fileSize = size
+        self.fileHash = hash
+
+        self.fileRead.emit()
 
     def sendFile(self):
         # inform the user about the incoming file
@@ -343,25 +414,22 @@ class Logic(QtCore.QObject):
             print "File Attached"
             self.fileAttached = True
 
-            # Create a QFile object based on the given path and store its name
-            attachedFile = QtCore.QFile(path)
-
-            # Open the file to read all of its contents in a byte array that's ready for sending
-            if not attachedFile.open(QtCore.QIODevice.ReadOnly):
-                return False
-
-            # read the file and prepare for sending
-            self.rawFile = attachedFile.readAll()
-
-            # store the name
-            fileInfo = QtCore.QFileInfo(attachedFile.fileName())
-            self.fileName = fileInfo.fileName()
-            self.fileSize = fileInfo.size() / 1000
-            self.fileHash = hashlib.sha256(self.rawFile).hexdigest()
-
-            return True
-
-        return False
+            self.readAttachedFile.emit(path)
+            # # Create a QFile object based on the given path and store its name
+            # attachedFile = QtCore.QFile(path)
+            #
+            # # Open the file to read all of its contents in a byte array that's ready for sending
+            # if not attachedFile.open(QtCore.QIODevice.ReadOnly):
+            #     return False
+            #
+            # # read the file and prepare for sending
+            # self.rawFile = attachedFile.readAll()
+            #
+            # # store the name
+            # fileInfo = QtCore.QFileInfo(attachedFile.fileName())
+            # self.fileName = fileInfo.fileName()
+            # self.fileSize = fileInfo.size() / 1000
+            # self.fileHash = hashlib.sha256(self.rawFile).hexdigest()
 
     def on_serverReady(self, port):
         self.forwardServerPort.emit(port)
@@ -444,6 +512,8 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         self.logic.forwardServerPort.connect(self.updateServerPort)
         self.logic.forwardFileDetails.connect(self.showFileInfoDialog)
         self.logic.pairSocketStateChanged.connect(self.displayConnectionStatus)
+        self.logic.fileRead.connect(self.on_file_attached)
+
         # handles all communication logic
         # self.comm = Communication()
 
@@ -467,6 +537,13 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         QtGui.QFontDatabase().addApplicationFont("OpenSansEmoji.ttf")
         self.textBrowser.setStyleSheet("""
                .QTextBrowser {
+                   font-family: "OpenSansEmoji";
+                   font-size: 14px;
+                   }
+               """)
+
+        self.lineEdit.setStyleSheet("""
+               .QLineEdit {
                    font-family: "OpenSansEmoji";
                    font-size: 14px;
                    }
@@ -534,7 +611,7 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
 
     def sendFile(self):
         # inform the user that they are sending a file before actually sending it
-        self.displayMessage("Sending file with hash: " + self.logic.fileHash, sender=True)
+        # self.displayMessage("Sending file with hash: " + self.logic.fileHash, sender=True)
         self.textBrowser_2.clear()
         self.logic.sendFile()
 
@@ -558,8 +635,10 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
                                                  'c:\\', "Any (*)")
 
         if (self.logic.attachFile(path)):
-            self.showFileInfoDialog(self.logic.fileName, self.logic.fileSize, self.logic.fileHash, sender=True)
+            # self.showFileInfoDialog(self.logic.fileName, self.logic.fileSize, self.logic.fileHash, sender=True)
+            pass
 
+    def on_file_attached(self):
         # small info feedback to user
         self.textBrowser_2.setText("Attached: " + self.logic.fileName)
         self.textBrowser_2.setToolTip("Attached: " + self.logic.fileName)
