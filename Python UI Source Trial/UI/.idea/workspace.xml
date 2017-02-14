@@ -58,8 +58,8 @@
           <file leaf-file-name="UserA.py" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/UserA.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="-1136">
-                  <caret line="751" column="0" lean-forward="true" selection-start-line="751" selection-start-column="0" selection-end-line="751" selection-end-column="0" />
+                <state relative-caret-position="-8246">
+                  <caret line="367" column="44" lean-forward="false" selection-start-line="367" selection-start-column="44" selection-end-line="367" selection-end-column="44" />
                   <folding>
                     <element signature="e#24#66#0" expanded="true" />
                   </folding>
@@ -75,7 +75,7 @@
             <entry file="file://$PROJECT_DIR$/UserA.py">
               <provider selected="true" editor-type-id="text-editor">
                 <state relative-caret-position="-2926">
-                  <caret line="356" column="0" lean-forward="false" selection-start-line="356" selection-start-column="0" selection-end-line="366" selection-end-column="33" />
+                  <caret line="698" column="0" lean-forward="false" selection-start-line="698" selection-start-column="0" selection-end-line="708" selection-end-column="33" />
                   <folding>
                     <element signature="e#24#66#0" expanded="true" />
                   </folding>
@@ -89,16 +89,6 @@
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
-      <find>self.logic</find>
-      <find>pairRequest</find>
-      <find>pair</find>
-      <find>self.CONNECTED</find>
-      <find>abort</find>
-      <find>pairFailed</find>
-      <find>on_pair_state_</find>
-      <find>on_pair_state_changed</find>
-      <find>forwardSocketSt</find>
-      <find>connectToHost</find>
       <find>abort()</find>
       <find>on_connection_failed</find>
       <find>CONNECTED</find>
@@ -114,11 +104,21 @@
       <find>attachFile</find>
       <find>forwardReceivedMessage</find>
       <find>displayConnectionStatus</find>
-      <find>on_send_triggered</find>
       <find>pairStateChange</find>
       <find>pairSucc</find>
       <find>on_connection_acce</find>
       <find>on_connectionState_changed</find>
+      <find>inputReady</find>
+      <find>connectInfoReady</find>
+      <find>messageOut</find>
+      <find>on_serverPort_ready</find>
+      <find>forwardServerPort</find>
+      <find>on_send_triggered</find>
+      <find>displayMessage</find>
+      <find>sendMessage</find>
+      <find>messageSent</find>
+      <find>on_file_loaded</find>
+      <find>deliverFile</find>
     </findStrings>
   </component>
   <component name="IdeDocumentHistory">
@@ -373,7 +373,7 @@
       <window_info id="Find" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32870865" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="false" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Python Console" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32980973" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
-      <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.18036287" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
+      <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.21558164" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
       <window_info id="Structure" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Favorites" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="2" side_tool="true" content_ui="tabs" />
@@ -394,7 +394,7 @@
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/UserA.py</url>
-          <line>337</line>
+          <line>679</line>
           <option name="timeStamp" value="2" />
         </line-breakpoint>
       </breakpoints>
@@ -666,8 +666,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/UserA.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-1136">
-          <caret line="751" column="0" lean-forward="true" selection-start-line="751" selection-start-column="0" selection-end-line="751" selection-end-column="0" />
+        <state relative-caret-position="-8246">
+          <caret line="367" column="44" lean-forward="false" selection-start-line="367" selection-start-column="44" selection-end-line="367" selection-end-column="44" />
           <folding>
             <element signature="e#24#66#0" expanded="true" />
           </folding>

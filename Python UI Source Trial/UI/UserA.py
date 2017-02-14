@@ -34,8 +34,7 @@ import hashlib
 #       process result and give feedback in GUI
 #
 # SIGNALS:
-#   connectInfoReady(host, port)
-#   messageOut(msg)
+#   -
 #
 # SLOTS:
 #   def on_send_triggered()
@@ -60,10 +59,6 @@ import hashlib
 
 
 class ChatWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
-    # signals to logic class
-    connectInfoReady = QtCore.pyqtSignal(str, str)
-    messageOut = QtCore.pyqtSignal(str)
-
     # setup the imported UI
     def __init__(self, parent=None):
         super(ChatWindow, self).__init__(parent)
@@ -85,6 +80,7 @@ class ChatWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         self.logic.forwardFileDetails.connect(self.showFileInfo)
         self.logic.forwardSocketState.connect(self.on_socketState_changed)
         self.logic.fileRead.connect(self.on_file_attached)
+        self.logic.fileSent.connect(self.on_file_sent)
 
         # keep track of all sent messages
         self.history = []
@@ -104,13 +100,12 @@ class ChatWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         # user hasn't placed any input yet so disable the button
         self.pushButton.setDisabled(True)
 
-        # set font for text box
+        # set font for chat box and user input
         self.textBrowser.setStyleSheet("""
                .QTextBrowser {
                    font-size: 14px;
                    }
                """)
-
         self.lineEdit.setStyleSheet("""
                .QLineEdit {
                    font-size: 14px;
@@ -121,62 +116,138 @@ class ChatWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
 
         print "Main GUI initialised with ID: " + str(int(QtCore.QThread.currentThreadId()))
 
+    ####################################################################
+    # on_serverPort_ready:
+    #
+    # Updates the listening port number visible in the User Info box.
+    #
+    # PARAMS:
+    #   port    -   The listening port on the TCP Server socket (int)
+    ####################################################################
     def on_serverPort_ready(self, port):
         # update the port number in GUI with listening port
         self.lineEdit_5.setText(str(port))
 
+    ####################################################################
+    # on_connected_clicked:
+    #
+    # Displays the Connect dialog box, which lets the user enter the
+    # details of the client they wish to communicate with
+    ####################################################################
     def on_connect_clicked(self):
         # pop up the connection dialog
         self.connectDialog.show()
 
-    def on_connectInfo_ready(self):
-        address = self.connectDialog.lineEdit.text()
-        port = self.connectDialog.lineEdit_2.text()
-
+    ####################################################################
+    # on_connectInfo_ready:
+    #
+    # Attempts to connect to the specified host.
+    #
+    # PARAMS:
+    #   address -   host address    (str)
+    #   port    -   The target host's listening port    (str)
+    ####################################################################
+    def on_connectInfo_ready(self, address, port):
         self.logic.beginPairing(address, port)
 
+    ####################################################################
+    # on_about_clicked
+    #
+    # Displays the About window
+    ####################################################################
     def on_about_clicked(self):
         self.aboutDialog.show()
 
+    ####################################################################
+    # on_attach_clicked:
+    #
+    # Brings up the Choose File dialog to get the path for the file
+    # that needs to be attached to the message. Once the path is
+    # retrieved, the chosen file will be stored to memory in preparation
+    # for transit.
+    ####################################################################
     def on_attach_clicked(self):
-        # get the path to the desired file to be attached
         print "Attaching file"
         path = QtGui.QFileDialog.getOpenFileName(self, 'Open file',
                                                  'c:\\', "Any (*)")
         self.logic.attachFile(path)
 
+    ####################################################################
+    # on_send_triggered
+    #
+    # Sends out the current message/file to the connected host
+    ####################################################################
     def on_send_triggered(self):
         self.sendMessage()
+        self.sendFile()
 
-        # check if there is a file attached before sending it out
-        if self.logic.fileAttached:
-            self.sendFile()
-
+    ####################################################################
+    # on_messageDraft_changed
+    #
+    # Disables the send button if there is no text in the input field
+    ####################################################################
     def on_messageDraft_changed(self):
-        # only allow the button to be pressed if there is user input
         if not str(self.lineEdit.text()):
             self.pushButton.setDisabled(True)
         else:
             self.pushButton.setEnabled(True)
 
+    ####################################################################
+    # on_file_attached
+    #
+    # Updates the field which notifies the user about the current file
+    # that's attached
+    ####################################################################
     def on_file_attached(self):
-        # small info feedback to user
         self.textBrowser_2.setText("Attached: " + self.logic.fileName)
         self.textBrowser_2.setToolTip("Attached: " + self.logic.fileName)
 
+    ####################################################################
+    # on_socketState_changed
+    #
+    # Displays the current status of the connection to connected host
+    # in the status bar
+    ####################################################################
     def on_socketState_changed(self, status):
         print "Connection state: " + str(status)
         self.statusBar.showMessage(status)
 
+    ####################################################################
+    # on_disconnect_clicked
+    #
+    # Closes the current connection
+    ####################################################################
     def on_disconnect_clicked(self):
         self.logic.tearDownConnection()
 
+    ####################################################################
+    # on_quit_clicked
+    #
+    # Closes the application
+    ####################################################################
     def on_quit_clicked(self):
         QtCore.QCoreApplication.quit()
 
-    # send out a message to the server whenever the user hits
-    # the 'send' button. It will take in whatever is on the
-    # LineEdit box and write it into    a socket
+    ####################################################################
+    # on_file_sent
+    #
+    # Displays the hash of the file being sent on the text browser
+    #
+    # PARAMS
+    #   hash    -   The hash of the file sent   (str)
+    ####################################################################
+    def on_file_sent(self, hash):
+        self.displayMessage("Sending file with hash: " + hash, sender=True)
+
+    ####################################################################
+    # sendMessage
+    #
+    # Sends the text in the input field to the connected host.
+    #
+    # The actual message appears on the sender's text area and the user
+    # input is cleared to allow for the next message to be typed in.
+    # Stores the message as well for future use, if needed.
+    ####################################################################
     def sendMessage(self):
         msg = self.lineEdit.text()
         if msg:
@@ -185,19 +256,41 @@ class ChatWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
             self.logic.deliverMessage(msg)
             self.recordMessage(msg)
 
+    ####################################################################
+    # sendFile
+    #
+    # Sends the file currently attached to the message.
+    ####################################################################
     def sendFile(self):
-        # inform the user that they are sending a file before actually sending it
-        self.displayMessage("Sending file with hash: " + self.logic.fileHash, sender=True)
-        self.textBrowser_2.clear()
-        self.logic.deliverFile()
+        # Check to see if the text field containing information about
+        # the attached file is empty which doubles as a check to see
+        # if there is a file attached in the first place.
+        if self.textBrowser_2.toPlainText():
+            # Clear the attached box to prepare for the next file to
+            # be attached
+            self.textBrowser_2.clear()
+            self.logic.deliverFile()
 
-    # quick dialog box to inform user about the attached file
-    # could also let user know about any errors with file attachment
+    ####################################################################
+    # showFileInfo
+    #
+    # Displays dialog box containing information about the file that
+    # was received or just attached.
+    #
+    # PARAMS
+    #   fileName    -   name of the file    (str)
+    #   fileSize    -   size of the file    (int)
+    #   hash        -   hash of the file    (str)
+    ####################################################################
     def showFileInfo(self, fileName, fileSize, hash, sender=False):
+        # Prepare dialog window and disable user input outside the box while active
         msg = QtGui.QMessageBox()
         msg.setIcon(QtGui.QMessageBox.Information)
         msg.setStandardButtons(QtGui.QMessageBox.Ok)
         msg.setModal(False)
+
+        # Depending on whether or not the file was received or is being
+        # sent, different flavor texts will be shown
         if sender:
             msg.setWindowTitle("File Attached")
             msg.setText("A file was successfully attached to the message")
@@ -206,11 +299,27 @@ class ChatWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
             msg.setWindowTitle("Message Received.")
             msg.setText("A file was received")
 
+        # Display file statistics
         msg.setInformativeText("File Name: " + str(fileName) + "\n" +
                                "File Size: " + str(fileSize) + " kb" + "\n\n" +
                                "SHA-256: " + str(hash))
+
+        # Executes the dialog box rather than just showing as show()
+        # will cause the dialog to immediately terminate once program
+        # returns from this function causing it to go out of scope
         msg.exec_()
 
+    ####################################################################
+    # displayMessage
+    #
+    # Displays the messages sent or received to the chat box prepended
+    # by the user name and time stamp
+    #
+    # PARAMS
+    #   msg     -   message sent/received   (str)
+    #   sender  -   flag which dictates whether they were the sender
+    #               or receiver. Defaults to False     (bool)
+    ####################################################################
     def displayMessage(self, msg, sender=False):
         timestamp = strftime("%H:%M", gmtime())
         if sender:
@@ -218,16 +327,46 @@ class ChatWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         else:
             self.textBrowser.append("[" + str(timestamp) + "] " + "Anonymous>> " + emojize(str(msg), use_aliases=True))
 
+    ####################################################################
+    # recordMessage
+    #
+    # Stores the message sent by the user to a list for future use
+    #
+    # PARAMS
+    #   msg     -   message sent    (str)
+    ####################################################################
     def recordMessage(self, msg):
         # store message into history
         self.history.append(msg)
+
+        # reset the index to point at the last message that was sent
         self.currMsgIndex = len(self.history) - 1
         self.currMsgIndex += 1
 
+    ####################################################################
+    # displayListenStatus
+    #
+    # Pretty useless since it will never get called
+    #
+    # PARAMS
+    #   status      -   status of the listening port    (str)
+    ####################################################################
     def displayListenStatus(self, status):
         if status is 1:
             self.statusBar.showMessage("Unable to start listening port")
 
+    ####################################################################
+    # keyPressEvent
+    #
+    # Allows the user to step through to older messages that were
+    # previously sent and updates the current input field with that
+    # message.
+    #
+    # Messages are stepped through using the up and down arrow leys
+    #
+    # PARAMS
+    #   event   -   the key that was pressed
+    ####################################################################
     def keyPressEvent(self, event):
         # get current key
         key = event.key()
@@ -243,6 +382,209 @@ class ChatWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
             if self.currMsgIndex < len(self.history) - 1:
                 self.currMsgIndex += 1
                 self.lineEdit.setText(self.history[self.currMsgIndex])
+
+
+########################################################################################################################
+# Logic
+#
+# DESCRIPTION:
+# Handles the communication between the Communication and ChatWindow classes. Acts as the "API layer" of sorts
+# which is accessible to the ChatWindow class. This way the GUI doesn't need to know anything about how the
+# underlying communication works and needs only access the methods available in this class.
+#
+# Cross-class interaction is done through the use of signals and sockets. Signals are required to be sent to the
+# Communications class as that is running on a separate thread, meaning that calling its functions directly would
+# cause unintentional behavior. The GUI is then sent signals to update its components with new information such as
+# files or messages received.
+#
+# File i/o tasks are run on a separate thread to make sure that the GUI isn't impacted. For the same reason, the
+# Communication class is also set to run on a separate thread. However with the use of signals and sockets this isn't
+# necessary since it will never take over the GUI thread. It was simply done for convenience.
+#
+# SLOTS:
+#   def forwardReceivedMessage(msg)
+#   def on_pair_state_changed(state)
+#   def on_file_received(name, size, hash)
+#   def on_server_ready(port)
+#   def on_file_loaded(data, name, size, hash)
+#
+# SIGNALS:
+#   outGoingMessageReady(int, QString)
+#   messageReceived(str)
+#   fileSent(str)
+#   pairRequest(str, str)
+#   tearDownInitiated()
+#   forwardServerPort(int)
+#   forwardConnectionStatus(str)
+#   forwardSocketState(str)
+#
+# PUBLIC FUNCTIONS
+#   def deliverMessage(msg)
+#   def deliverFile(file)
+#   def tearDownConnection()
+#   def beginPairing(address, port
+#   def attachFile(file)
+########################################################################################################################
+
+class Logic(QtCore.QObject):
+    """""""""""""""""""""""""""""""""""""""
+    MESSAGE SIGNALS
+    """""""""""""""""""""""""""""""""""""""
+    # To comms class
+    outgoingMessageReady = QtCore.pyqtSignal(int, QtCore.QString)
+
+    # to GUI class
+    messageReceived = QtCore.pyqtSignal(str)
+    fileSent = QtCore.pyqtSignal(str)
+
+    """""""""""""""""""""""""""""""""""""""
+    CONNECTION SIGNALS
+    """""""""""""""""""""""""""""""""""""""
+    # To comms class
+    pairRequest = QtCore.pyqtSignal(str, str)
+    tearDownInitiated = QtCore.pyqtSignal()
+
+    # To GUI class
+    forwardServerPort = QtCore.pyqtSignal(int)
+    forwardConnectionStatus = QtCore.pyqtSignal(str)
+    forwardSocketState = QtCore.pyqtSignal(str)
+
+    """""""""""""""""""""""""""""""""""""""
+    FILE SIGNALS
+    """""""""""""""""""""""""""""""""""""""
+    # To GUI class
+    fileAttached = QtCore.pyqtSignal()
+    forwardFileDetails = QtCore.pyqtSignal(str, int, str)
+    fileReadyForWrite = QtCore.pyqtSignal(int, QtCore.QByteArray)
+    readAttachedFile = QtCore.pyqtSignal(str)
+    fileRead = QtCore.pyqtSignal()
+
+    def __init__(self):
+        QtCore.QObject.__init__(self)
+
+        # handles all communication logic
+        self.comm = Communication()
+
+        # sending data
+        self.rawFile = None
+        self.fileName = ""
+        self.fileSize = 0
+        self.fileHash = None
+
+        # flg to check if a file is attached to the message
+        self.fileAttached = False
+
+        # connect comm signal/slots
+        self.comm.messageReceived.connect(self.forwardReceivedMessage)
+        self.comm.pairStateChanged.connect(self.on_pair_state_changed)
+        self.comm.listenError.connect(lambda: self.displayListenStatus(self.comm.__listenPortLive))
+        self.comm.fileReceived.connect(self.on_file_received)
+        self.comm.serverReady.connect(self.on_server_ready)
+
+        self.commThread = QtCore.QThread()
+        self.comm.moveToThread(self.commThread)
+
+        self.outgoingMessageReady.connect(self.comm.write)
+        self.fileReadyForWrite.connect(self.comm.write)
+        self.pairRequest.connect(self.comm.pair)
+        self.tearDownInitiated.connect(self.comm.tearDown)
+        self.commThread.started.connect(self.comm.run)
+        self.commThread.start()
+
+        # file IO stuff
+        self.fileIO = FileIOThread()
+        self.fileIO.readComplete.connect(self.on_file_loaded)
+
+        self.fileIOThread = QtCore.QThread()
+        self.fileIO.moveToThread(self.fileIOThread)
+
+        self.readAttachedFile.connect(self.fileIO.readFile)
+        self.fileIOThread.started.connect(self.fileIO.run)
+        self.fileIOThread.start()
+
+    def on_pair_state_changed(self, state):
+        if state == 0:
+            self.forwardSocketState.emit("Disconnected")
+        elif state == 1:
+            self.forwardSocketState.emit("Looking up host name..")
+        elif state == 2:
+            self.forwardSocketState.emit("Connecting..")
+        elif state == 3:
+            self.forwardSocketState.emit("Connected")
+        elif state == 6:
+            self.forwardSocketState.emit("Disconnecting..")
+
+    def on_file_received(self, name, size, hash):
+        print "received file"
+        self.forwardFileDetails.emit(name, size, hash)
+
+    def on_file_loaded(self, data, name, size, hash):
+        print "Got to on_fileReady"
+        # get the data
+        self.rawFile = data
+
+        # extract name, size and hash
+        self.fileName = name
+        self.fileSize = size
+        self.fileHash = hash
+
+        self.fileAttached = True
+        self.fileRead.emit()
+
+    def deliverFile(self):
+        # inform the user about the incoming file
+        self.outgoingMessageReady.emit(Config.Message_t, "Sending file with hash: " + self.fileHash)
+
+        # first send the file name
+        self.outgoingMessageReady.emit(Config.FileName_t, self.fileName)
+
+        # send out the file and reset the file attached flag
+        self.fileReadyForWrite.emit(Config.FileData_t, self.rawFile)
+        self.fileAttached = False
+
+        # send out a signal with the file hash
+        self.fileSent.emit(self.fileHash)
+
+    def attachFile(self, path):
+        # if the path isn't empty, set the file flag to true and prep the file for transfer
+        if path:
+            print "File Attached"
+            self.readAttachedFile.emit(path)
+
+    def on_server_ready(self, port):
+        self.forwardServerPort.emit(port)
+
+    def forwardReceivedMessage(self, msg):
+        print "Forwarding message"
+        self.messageReceived.emit(msg)
+
+    def on_messageReady(self, payload_t, payload):
+        print "inside logic"
+        self.outgoingMessageReady.emit(payload_t, payload)
+        # self.comm.write(payload_t, payload)
+
+    def beginPairing(self, address, port):
+        print "pairing from logic"
+        # ensure that each connection/reconnect is a fresh one
+
+        self.tearDownInitiated.emit()
+        # get the connection details from the connection dialog
+        self.pairRequest.emit(address, port)
+        # self.comm.pair(address, port)
+
+    def deliverMessage(self, msg):
+        print "Sending msg from Logic" + str(int(QtCore.QThread.currentThreadId()))
+
+        # check if the msg is empty
+        if msg:
+            self.outgoingMessageReady.emit(Config.Message_t, msg)
+
+    def displayMessage(self, msg, sender):
+        self.messageReceived.emit(msg, sender)
+        print "got message: " + msg
+
+    def tearDownConnection(self):
+        self.tearDownInitiated.emit()
 
 
 ########################################################################################################################
@@ -476,206 +818,6 @@ class Communication(QtCore.QThread):
         # disconnect both request and receive sockets
         self.__tcpSocket_request.abort()
         self.__tcpSocket_receive.abort()
-
-
-########################################################################################################################
-# Logic
-#
-# DESCRIPTION:
-# Handles the communication between the Communication and ChatWindow classes. Acts as the "API layer" of sorts
-# which is accessible to the ChatWindow class. This way the GUI doesn't need to know anything about how the
-# underlying communication works and needs only access the methods available in this class.
-#
-# Cross-class interaction is done through the use of signals and sockets. Signals are required to be sent to the
-# Communications class as that is running on a separate thread, meaning that calling its functions directly would
-# cause unintentional behavior. The GUI is then sent signals to update its components with new information such as
-# files or messages received.
-#
-# File i/o tasks are run on a separate thread to make sure that the GUI isn't impacted. For the same reason, the
-# Communication class is also set to run on a separate thread. However with the use of signals and sockets this isn't
-# necessary since it will never take over the GUI thread. It was simply done for convenience.
-#
-# SLOTS:
-#   def forwardReceivedMessage(msg)
-#   def on_pair_state_changed(state)
-#   def on_file_received(name, size, hash)
-#   def on_server_ready(port)
-#   def on_file_loaded(data, name, size, hash)
-#
-# SIGNALS:
-#   outGoingMessageReady(int, QString)
-#   messageReceived(str)
-#   pairRequest(str, str)
-#   tearDownInitiated()
-#   forwardServerPort(int)
-#   forwardConnectionStatus(str)
-#   forwardSocketState(str)
-#
-# PUBLIC FUNCTIONS
-#   def deliverMessage(msg)
-#   def deliverFile(file)
-#   def tearDownConnection()
-#   def beginPairing(address, port
-#   def attachFile(file)
-########################################################################################################################
-
-class Logic(QtCore.QObject):
-    """""""""""""""""""""""""""""""""""""""
-    MESSAGE SIGNALS
-    """""""""""""""""""""""""""""""""""""""
-    # To comms class
-    outgoingMessageReady = QtCore.pyqtSignal(int, QtCore.QString)
-
-    # to GUI class
-    messageReceived = QtCore.pyqtSignal(str)
-
-    """""""""""""""""""""""""""""""""""""""
-    CONNECTION SIGNALS
-    """""""""""""""""""""""""""""""""""""""
-    # To comms class
-    pairRequest = QtCore.pyqtSignal(str, str)
-    tearDownInitiated = QtCore.pyqtSignal()
-
-    # To GUI class
-    forwardServerPort = QtCore.pyqtSignal(int)
-    forwardConnectionStatus = QtCore.pyqtSignal(str)
-    forwardSocketState = QtCore.pyqtSignal(str)
-
-    """""""""""""""""""""""""""""""""""""""
-    FILE SIGNALS
-    """""""""""""""""""""""""""""""""""""""
-    # To GUI
-    fileAttached = QtCore.pyqtSignal()
-    forwardFileDetails = QtCore.pyqtSignal(str, int, str)
-    fileReadyForWrite = QtCore.pyqtSignal(int, QtCore.QByteArray)
-    readAttachedFile = QtCore.pyqtSignal(str)
-    fileRead = QtCore.pyqtSignal()
-
-    def __init__(self):
-        QtCore.QObject.__init__(self)
-
-        # handles all communication logic
-        self.comm = Communication()
-
-        # sending data
-        self.rawFile = None
-        self.fileName = ""
-        self.fileSize = 0
-        self.fileHash = None
-
-        # flg to check if a file is attached to the message
-        self.fileAttached = False
-
-        # connect comm signal/slots
-        self.comm.messageReceived.connect(self.forwardReceivedMessage)
-        self.comm.pairStateChanged.connect(self.on_pair_state_changed)
-        self.comm.listenError.connect(lambda: self.displayListenStatus(self.comm.__listenPortLive))
-        self.comm.fileReceived.connect(self.on_file_received)
-        self.comm.serverReady.connect(self.on_server_ready)
-
-        self.commThread = QtCore.QThread()
-        self.comm.moveToThread(self.commThread)
-
-        self.outgoingMessageReady.connect(self.comm.write)
-        self.fileReadyForWrite.connect(self.comm.write)
-        self.pairRequest.connect(self.comm.pair)
-        self.tearDownInitiated.connect(self.comm.tearDown)
-        self.commThread.started.connect(self.comm.run)
-        self.commThread.start()
-
-        # file IO stuff
-        self.fileIO = FileIOThread()
-        self.fileIO.readComplete.connect(self.on_file_loaded)
-
-        self.fileIOThread = QtCore.QThread()
-        self.fileIO.moveToThread(self.fileIOThread)
-
-        self.readAttachedFile.connect(self.fileIO.readFile)
-        self.fileIOThread.started.connect(self.fileIO.run)
-        self.fileIOThread.start()
-
-    def on_pair_state_changed(self, state):
-        if state == 0:
-            self.forwardSocketState.emit("Disconnected")
-        elif state == 1:
-            self.forwardSocketState.emit("Looking up host name..")
-        elif state == 2:
-            self.forwardSocketState.emit("Connecting..")
-        elif state == 3:
-            self.forwardSocketState.emit("Connected")
-        elif state == 6:
-            self.forwardSocketState.emit("Disconnecting..")
-
-    def on_file_received(self, name, size, hash):
-        print "received file"
-        self.forwardFileDetails.emit(name, size, hash)
-
-    def on_file_loaded(self, data, name, size, hash):
-        print "Got to on_fileReady"
-        # get the data
-        self.rawFile = data
-
-        # extract name, size and hash
-        self.fileName = name
-        self.fileSize = size
-        self.fileHash = hash
-
-        self.fileAttached = True
-        self.fileRead.emit()
-
-    def deliverFile(self):
-        # inform the user about the incoming file
-        self.outgoingMessageReady.emit(Config.Message_t, "Sending file with hash: " + self.fileHash)
-
-        # first send the file name
-        self.outgoingMessageReady.emit(Config.FileName_t, self.fileName)
-
-        # send out the file and reset the file attached flag
-        self.fileReadyForWrite.emit(Config.FileData_t, self.rawFile)
-
-        # file has been sent. do tear down to prepare for next file
-        self.fileAttached = False
-
-    def attachFile(self, path):
-        # if the path isn't empty, set the file flag to true and prep the file for transfer
-        if path:
-            print "File Attached"
-            self.readAttachedFile.emit(path)
-
-    def on_server_ready(self, port):
-        self.forwardServerPort.emit(port)
-
-    def forwardReceivedMessage(self, msg):
-        print "Forwarding message"
-        self.messageReceived.emit(msg)
-
-    def on_messageReady(self, payload_t, payload):
-        print "inside logic"
-        self.outgoingMessageReady.emit(payload_t, payload)
-        # self.comm.write(payload_t, payload)
-
-    def beginPairing(self, address, port):
-        print "pairing from logic"
-        # ensure that each connection/reconnect is a fresh one
-
-        self.tearDownInitiated.emit()
-        # get the connection details from the connection dialog
-        self.pairRequest.emit(address, port)
-        # self.comm.pair(address, port)
-
-    def deliverMessage(self, msg):
-        print "Sending msg from Logic" + str(int(QtCore.QThread.currentThreadId()))
-
-        # check if the msg is empty
-        if msg:
-            self.outgoingMessageReady.emit(Config.Message_t, msg)
-
-    def displayMessage(self, msg, sender):
-        self.messageReceived.emit(msg, sender)
-        print "got message: " + msg
-
-    def tearDownConnection(self):
-        self.tearDownInitiated.emit()
 
 
 ########################################################################################################################
