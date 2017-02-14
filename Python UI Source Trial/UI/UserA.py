@@ -10,495 +10,63 @@ import ctypes
 import hashlib
 
 
-class Config:
-    DownloadDir = QtCore.QDir.homePath() + "\\Desktop\\"
-    Port_t, Message_t, FileData_t, FileName_t = range(4)  # Message types
-
-
-# Inherit QObject to use signals
-class Communication(QtCore.QThread):
-    HEADER_SIZE = 6  # 4 bytes for payload size, 2 bytes for payload type
-
-    """""""""""""""""""""""""""""""""""""""
-    MESSAGE/FILE SIGNALS
-    """""""""""""""""""""""""""""""""""""""
-    messageReceived = QtCore.pyqtSignal(str)
-    fileReceived = QtCore.pyqtSignal(str, int, str)
-
-    """""""""""""""""""""""""""""""""""""""
-    PAIRING SIGNALS
-    """""""""""""""""""""""""""""""""""""""
-    listenError = QtCore.pyqtSignal()
-    pairStateChanged = QtCore.pyqtSignal(int)
-    pairSuccess = QtCore.pyqtSignal()
-    serverReady = QtCore.pyqtSignal(int)
-
-    def __init__(self):
-        super(Communication, self).__init__()
-
-        # IO variables
-        self.__blockSize = 0
-
-        self.__msgType = -1
-        self.__pairPort = -1
-
-        # Variables to be passed by signals
-        self.__msg = None
-        self.__fileHash = ""
-        self.__fileName = ""
-        self.__fileSize = 0
-        self.__rawFile = None
-        self.__listenPortLive = False
-
-        # One TcpSocket is for the server portion of the program (_receive)
-        # the other is for the client portion of the program (_request)
-        self.__tcpSocket_receive = QtNetwork.QTcpSocket(self)
-        self.__tcpSocket_request = QtNetwork.QTcpSocket(self)
-        self.__tcpServer = QtNetwork.QTcpServer(self)
-
-    def run(self):
-        # connecting SIGNALS and SLOTS
-        self.__tcpSocket_request.connected.connect(self.on_connection_accepted)
-        self.__tcpSocket_request.error.connect(self.on_connection_failed)
-        self.__tcpSocket_request.stateChanged.connect(self.on_connection_state_changed)
-        self.__tcpServer.newConnection.connect(self.incomingClient)
-
-        self.startTcpServer()
-        QtCore.QThread.exec_(self)
-
-    def on_connection_state_changed(self, state):
-        print "Socket state is now: " + str(self.__tcpSocket_request.state())
-        self.pairStateChanged.emit(state)
-
-    def on_connection_failed(self, error):
-        print error
-        print "Something went wrong"
-
-
-    # move to its own function so that this won't be running on the main thread
-    def startTcpServer(self):
-        # begin listening at a random port
-        if not self.__tcpServer.listen(QtNetwork.QHostAddress("localhost"), randint(5000, 65535)):
-            # server couldn't start
-            self.__listenPortLive = False
-            self.listenError.emit()
-        else:
-            # server started successfully
-            self.__listenPortLive = True
-            self.serverReady.emit(self.__tcpServer.serverPort())
-
-    def incomingClient(self):
-        # assign the incoming connection to a socket and connect that socket's
-        # readyRead signal to read the message
-        self.__tcpSocket_receive = self.__tcpServer.nextPendingConnection()
-        self.__tcpSocket_receive.readyRead.connect(self.read)
-
-    # write routine which doesn't care about what it's writing or who it's writing to
-    def write(self, payload_t, payload):
-        print "Writing from thread: " + str(int(QtCore.QThread.currentThreadId()))
-        # will contain the message
-        block = QtCore.QByteArray()
-
-        # inform that this message is to show the listening port
-        # prepare the output stream
-        out = QtCore.QDataStream(block, QtCore.QIODevice.WriteOnly)
-        out.setVersion(QtCore.QDataStream.Qt_4_0)
-        out.writeUInt32(0)  # placeholder for payload size
-        out.writeUInt16(payload_t)  # payload_t is int, constructor only takes str
-
-        # print "past header"
-        # determine which procedure to use when writing to the datastream
-        if payload_t == Config.Port_t or payload_t == Config.Message_t or payload_t == Config.FileName_t:
-            # payload is a string
-            out.writeString(payload)
-        elif payload_t == Config.FileData_t:
-            # payload is a byte array
-            out.writeRawData(payload)
-
-        # print "data on datastream"
-        # go back to the start and write the size of the payload
-        out.device().seek(0)
-        out.writeUInt32(block.size() - self.HEADER_SIZE)
-
-        self.__tcpSocket_request.write(block)
-
-    # returns QDataStream object for processing
-    def read(self):
-        print "Reading from thread: " + str(int(QtCore.QThread.currentThreadId()))
-        # Constructs a data stream that uses the I/O device.
-        instr = QtCore.QDataStream(self.__tcpSocket_receive)
-        instr.setVersion(QtCore.QDataStream.Qt_4_0)
-
-        # if we haven't read anything yet from the server and size is not set
-        if self.__blockSize == 0:
-            # the first two bytes are reserved for the size of the payload.
-            # must check it is at least that size to take in a valid payload size.
-            if self.__tcpSocket_receive.bytesAvailable() < self.HEADER_SIZE:
-                print "smaller than header"
-                return
-
-            # read the size of the byte array payload from server.
-            # Once the first flag is consumed, read the message type on the payload
-            print "getting new payload info"
-
-            self.__blockSize = instr.readUInt32()
-            self.__msgType = instr.readUInt16()
-            print "Msg type: " + str(self.__msgType)
-        # the data is incomplete so we return until the data is good
-        if self.__tcpSocket_receive.bytesAvailable() < self.__blockSize:
-            print "message incomplete"
-            return
-
-        # sort out what to do with the received data
-        # go back to the start of the payload
-        if self.__msgType == Config.Port_t:
-            # message contains port information
-            # save the port to set the request socket to point at that port
-            # sometimes required.. ie. over local network this seemed to become an issue.. fine local
-            self.__pairPort = instr.readString()
-            self.pair(self.__tcpSocket_receive.peerAddress(), int(self.__pairPort))
-
-        elif self.__msgType == Config.Message_t:
-            # normal message
-            # read in the message and inform connected objects about the contents
-            msg = instr.readString()
-            self.messageReceived.emit(msg)
-        elif self.__msgType == Config.FileData_t:
-            self.__rawFile = instr.readRawData(self.__blockSize)
-
-            # downloads go to the user's desktop folder. will emit a signal when finished
-            file = QtCore.QFile(Config.DownloadDir + self.__fileName)
-            file.open(QtCore.QIODevice.WriteOnly)
-            file.write(self.__rawFile)
-            file.close()
-
-            fileSize = QtCore.QFileInfo(file).size() / 1000
-            fileHash = hashlib.sha256(self.__rawFile).hexdigest()
-            self.fileReceived.emit(self.__fileName, fileSize, fileHash)
-        elif self.__msgType == Config.FileName_t:
-            # store the file name. used when saving the received file that should come straight after this
-            self.__fileName = instr.readString()
-            print "received file name: " + str(self.__fileName)
-
-        # reset the block size for next msg to be read
-        self.__blockSize = 0
-        self.__msgType = -1
-
-        # recursive call to check if there is data still to be read.
-        self.read()
-
-    def pair(self, host, port):
-        # allows for connection between two chatting programmes
-        # possibly the place where AES, SHA and RSA will take place
-        # print "pairing from thread: " + str(int(QtCore.QThread.currentThreadId()))
-        if self.__tcpSocket_request.state() != QtNetwork.QAbstractSocket.ConnectedState:
-            print "Pairing bruh"
-            self.__tcpSocket_request.connectToHost(host, int(port))
-            print "Called connectToHost yo"
-
-    def on_connection_accepted(self):
-        print "connection accepted in thread: " + str(int(QtCore.QThread.currentThreadId()))
-        # pairing done, let connected objects know
-        self.pairSuccess.emit()
-
-        # attempt to connect to the listening port of the other user
-        self.write(Config.Port_t, str(self.__tcpServer.serverPort()))
-
-    def tearDown(self):
-        self.__tcpSocket_request.abort()
-        self.__tcpSocket_receive.abort()
-
-class AboutDialog(QtGui.QDialog, ui_about.Ui_Dialog):
-    def __init__(self, parent):
-        super(AboutDialog, self).__init__(parent)
-        self.setupUi(self)
-
-        # keep focus fixed to this window
-        self.setModal(True)
-
-        # prevent resizing
-        self.setFixedSize(451, 213)
-
-
-class ConnectDialog(QtGui.QDialog, ui_connect.Ui_Dialog):
-    # SIGNALS
-    inputReady = QtCore.pyqtSignal()
-
-    def __init__(self, parent):
-        super(ConnectDialog, self).__init__(parent)
-        self.setupUi(self)
-
-        # keep focus fixed to this window
-        self.setModal(True)
-
-        # prevent resizing
-        self.setFixedSize(254, 96)
-
-        # default values for connection
-        self.lineEdit.setText("localhost")
-
-        # connect SIGNALS to SLOTS
-        self.lineEdit.textChanged.connect(self.on_input_changed)
-        self.lineEdit_2.textChanged.connect(self.on_input_changed)
-        self.lineEdit.returnPressed.connect(self.on_connect_clicked)
-        self.lineEdit_2.returnPressed.connect(self.on_connect_clicked)
-        self.pushButton.clicked.connect(self.on_connect_clicked)
-        self.pushButton.setDisabled(True)
-
-    def on_input_changed(self):
-        # disable the button if input is not valid
-        if self.isValidInput():
-            self.pushButton.setEnabled(True)
-        else:
-            self.pushButton.setDisabled(True)
-
-    def on_connect_clicked(self):
-        # inform other objects that the user has completed the form
-        # close the form once done.
-        if self.isValidInput():
-            self.inputReady.emit()
-            self.close()
-
-    # can be made more rigorous if felt needed
-    def isValidInput(self):
-        # check if either of the inputs are empty
-        if self.lineEdit.text() and self.lineEdit_2.text():
-            return True
-        else:
-            return False
-
-
-class FileIOThread(QtCore.QThread):
-    readComplete = QtCore.pyqtSignal(QtCore.QByteArray, str, int, str)
-    error = QtCore.pyqtSignal()
-
-    def __init__(self):
-        QtCore.QThread.__init__(self)
-
-    def run(self):
-        # run within its own event loop
-        QtCore.QThread.exec_(self)
-
-    def readFile(self, path):
-        print "Reading file"
-        attachedFile = QtCore.QFile(path)
-
-        # check that the file opens successfully
-        if not attachedFile.open(QtCore.QIODevice.ReadOnly):
-            return False
-
-        # get file info
-        fileInfo = QtCore.QFileInfo(attachedFile.fileName())
-
-        # read the file and prepare for sending
-        rawFile = attachedFile.readAll()
-
-        fileName = fileInfo.fileName()
-        fileSize = fileInfo.size() / 1000
-        fileHash = hashlib.sha256(rawFile).hexdigest()
-
-        self.readComplete.emit(rawFile, fileName, fileSize, fileHash)
-
-    def writeToFile(self, data):
-        pass
-
-    # return byte array
-    def bytesToFile(self, data, path):
-        # open file with given path (which includes file name)
-        file = QtCore.QFile(path)
-        file.open(QtCore.QIODevice.WriteOnly)
-
-        file.write(data)
-        file.close()
-
-        self.readComplete.emit()
-
-
-# middle man between the GUI class and TCP communication
-class Logic(QtCore.QObject):
-    """""""""""""""""""""""""""""""""""""""
-    MESSAGE SIGNALS
-    """""""""""""""""""""""""""""""""""""""
-    # To comms class
-    outgoingMessageReady = QtCore.pyqtSignal(int, QtCore.QString)
-
-    # to GUI class
-    messageReceived = QtCore.pyqtSignal(str)
-
-    """""""""""""""""""""""""""""""""""""""
-    CONNECTION SIGNALS
-    """""""""""""""""""""""""""""""""""""""
-    # To comms class
-    pairRequest = QtCore.pyqtSignal(str, str)
-    tearDownInitiated = QtCore.pyqtSignal()
-
-    # To GUI class
-    forwardServerPort = QtCore.pyqtSignal(int)
-    forwardConnectionStatus = QtCore.pyqtSignal(str)
-    forwardSocketState = QtCore.pyqtSignal(str)
-
-    """""""""""""""""""""""""""""""""""""""
-    FILE SIGNALS
-    """""""""""""""""""""""""""""""""""""""
-    # To GUI
-    fileAttached = QtCore.pyqtSignal()
-    forwardFileDetails = QtCore.pyqtSignal(str, int, str)
-    fileReadyForWrite = QtCore.pyqtSignal(int, QtCore.QByteArray)
-    readAttachedFile = QtCore.pyqtSignal(str)
-    fileRead = QtCore.pyqtSignal()
-
-    def __init__(self):
-        QtCore.QObject.__init__(self)
-
-        # handles all communication logic
-        self.comm = Communication()
-
-        # sending data
-        self.rawFile = None
-        self.fileName = ""
-        self.fileSize = 0
-        self.fileHash = None
-
-        # flg to check if a file is attached to the message
-        self.fileAttached = False
-
-        # connect comm signal/slots
-        self.comm.messageReceived.connect(self.forwardReceivedMessage)
-        self.comm.pairStateChanged.connect(self.on_pair_state_changed)
-        self.comm.listenError.connect(lambda: self.displayListenStatus(self.comm.__listenPortLive))
-        self.comm.fileReceived.connect( self.on_fileReceived)
-        self.comm.serverReady.connect(self.on_serverReady)
-
-        self.commThread = QtCore.QThread()
-        self.comm.moveToThread(self.commThread)
-
-        self.outgoingMessageReady.connect(self.comm.write)
-        self.fileReadyForWrite.connect(self.comm.write)
-        self.pairRequest.connect(self.comm.pair)
-        self.tearDownInitiated.connect(self.comm.tearDown)
-        self.commThread.started.connect(self.comm.run)
-        self.commThread.start()
-
-        # file IO stuff
-        self.fileIO = FileIOThread()
-        self.fileIO.readComplete.connect(self.on_file_loaded)
-
-        self.fileIOThread = QtCore.QThread()
-        self.fileIO.moveToThread(self.fileIOThread)
-
-        self.readAttachedFile.connect(self.fileIO.readFile)
-        self.fileIOThread.started.connect(self.fileIO.run)
-        self.fileIOThread.start()
-
-    def on_pair_state_changed(self, state):
-        if state == 0:
-            self.forwardSocketState.emit("Disconnected")
-        elif state == 1:
-            self.forwardSocketState.emit("Looking up host name..")
-        elif state == 2:
-            self.forwardSocketState.emit("Connecting..")
-        elif state == 3:
-            self.forwardSocketState.emit("Connected")
-        elif state == 6:
-            self.forwardSocketState.emit("Disconnecting..")
-
-    def on_fileReceived(self, name, size, hash):
-        print "received file"
-        self.forwardFileDetails.emit(name, size, hash)
-
-    def on_file_loaded(self, data, name, size, hash):
-        print "Got to on_fileReady"
-        # get the data
-        self.rawFile = data
-
-        # extract name, size and hash
-        self.fileName = name
-        self.fileSize = size
-        self.fileHash = hash
-
-        self.fileAttached = True
-        self.fileRead.emit()
-
-    def deliverFile(self):
-        # inform the user about the incoming file
-        self.outgoingMessageReady.emit(Config.Message_t, "Sending file with hash: " + self.fileHash)
-
-        # first send the file name
-        self.outgoingMessageReady.emit(Config.FileName_t, self.fileName)
-
-        # send out the file and reset the file attached flag
-        self.fileReadyForWrite.emit(Config.FileData_t, self.rawFile)
-
-        # file has been sent. do tear down to prepare for next file
-        self.fileAttached = False
-
-    def attachFile(self, path):
-        # if the path isn't empty, set the file flag to true and prep the file for transfer
-        if path:
-            print "File Attached"
-            self.readAttachedFile.emit(path)
-
-    def on_serverReady(self, port):
-        self.forwardServerPort.emit(port)
-
-    def forwardReceivedMessage(self, msg):
-        print "Forwarding message"
-        self.messageReceived.emit(msg)
-
-    def on_messageReady(self, payload_t, payload):
-        print "inside logic"
-        self.outgoingMessageReady.emit(payload_t, payload)
-        # self.comm.write(payload_t, payload)
-
-    def beginPairing(self, address, port):
-        print "pairing from logic"
-        # ensure that each connection/reconnect is a fresh one
-
-        self.tearDownInitiated.emit()
-        # get the connection details from the connection dialog
-        self.pairRequest.emit(address, port)
-        # self.comm.pair(address, port)
-
-    def deliverMessage(self, msg):
-        print "Sending msg from Logic" + str(int(QtCore.QThread.currentThreadId()))
-
-        # check if the msg is empty
-        if msg:
-            self.outgoingMessageReady.emit(Config.Message_t, msg)
-
-    def on_send_triggered(self):
-        self.deliverMessage()
-
-        # check if there is a file attached before sending it out
-        if self.fileAttached:
-            self.deliverFile()
-
-    def displayConnectionStatus(self, status):
-        print "Connected"
-
-    def displayMessage(self, msg, sender):
-        self.messageReceived.emit(msg, sender)
-        print "got message: " + msg
-
-    def tearDownConnection(self):
-        self.tearDownInitiated.emit()
-
-# the MainWindow class should only be concerned about displying/updating information on the screen.
-# it should not be concerned about how any of the logic works
-# design is then a simple:
+########################################################################################################################
+# ChatWindow
+#
+# DESCRIPTION:
+# This is the initial window that pops up once the application is ran. It provides the user abilities to connect
+# to other users and to send messages/files. Messages passed between users appear in the chat box while a text field is
+# available for user input. Files may be attached to messages by clicking on the 'Attach' button. The server information
+# can be found in the "User Info" box and is what other users use to connect to you.
+#
+# The UI was designed in Qt Designer and converted into valid .py files from XML. This made UI design much more straight
+# forward as there was less focus in putting effort to coding the button placements/layouts.
+#
+# Once imported the file simply needed to be connected using the SIGNALS and SLOTS mechanisms which a core mechanic
+# built into the Qt framework. User actions (signals) can be appropriately mapped into reactions in code (slots).
+#
+# The design is then a simple:
 #   emit signal from UI event
-#       emit signal containing event details for processing
+#       process input in a slot within this class
+#           call the logic class functions if necessary (for functional actions)
 #
 #   slot event result
 #       process result and give feedback in GUI
-class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
+#
+# SIGNALS:
+#   connectInfoReady(host, port)
+#   messageOut(msg)
+#
+# SLOTS:
+#   def on_send_triggered()
+#   def on_attach_clicked()
+#   def on_messageDraft_changed()
+#   def on_connect_clicked()
+#   def on_about_clicked()
+#   def on_quit_clicked()
+#   def on_disconnect_clicked()
+#   def on_connectInfo_ready()
+#   def displayMessage(msg, sender)
+#   def on_serverPort_ready(port)
+#   def showFileInfo(fileName, fileSize, hash, sender)
+#   def on_socketState_changed(status)
+#   def on_file_attached()
+#
+# PUBLIC FUNCTIONS
+#   def sendMessage()
+#   def sendFile()
+#   def keyPressEvent(event)
+########################################################################################################################
+
+
+class ChatWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
     # signals to logic class
     connectInfoReady = QtCore.pyqtSignal(str, str)
     messageOut = QtCore.pyqtSignal(str)
 
     # setup the imported UI
     def __init__(self, parent=None):
-        super(MainWindow, self).__init__(parent)
+        super(ChatWindow, self).__init__(parent)
 
         # prevent resizing
         self.setFixedSize(652, 358)
@@ -510,8 +78,7 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         self.connectDialog = ConnectDialog(self)
         self.aboutDialog = AboutDialog(self)
 
-
-        # pass over logic to this object through signals and slots
+        # Logic signals and slots
         self.logic = Logic()
         self.logic.messageReceived.connect(self.displayMessage)
         self.logic.forwardServerPort.connect(self.on_serverPort_ready)
@@ -523,7 +90,7 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         self.history = []
         self.currMsgIndex = -1
 
-        # connecting SIGNALS to SLOTS
+        # UI signals to slots
         self.pushButton.clicked.connect(self.on_send_triggered)
         self.pushButton_2.clicked.connect(self.on_attach_clicked)
         self.lineEdit.returnPressed.connect(self.on_send_triggered)
@@ -533,7 +100,6 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         self.actionQuit.triggered.connect(self.on_quit_clicked)
         self.actionDisconnect.triggered.connect(self.on_disconnect_clicked)
         self.connectDialog.inputReady.connect(self.on_connectInfo_ready)
-
 
         # user hasn't placed any input yet so disable the button
         self.pushButton.setDisabled(True)
@@ -679,6 +245,588 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
                 self.lineEdit.setText(self.history[self.currMsgIndex])
 
 
+########################################################################################################################
+# Communication
+#
+# DESCRIPTION:
+# This class' sole purpose is to take care of all TCP communications. It is written using the QtNetwork library,
+# utilising the QtTcpSocket and QtTcpServer classes to handle connections and communications.
+#
+# Three sockets in total are being managed within this class and their names are:
+#   1) tcpServer
+#   2) tcpSocket_request
+#   3) tcpSocket_receive
+#
+# tcpServer is maintained throughout the entire application's lifetime. It is the socket that other users connect to.
+# tcpSocket_request is the socket which takes care of all outgoing communications to TCP servers. Messages are written
+# to this socket and will then be readable by the socket it is connected to.
+# tcpSocket_receive is a socket returned by tcpServer whenever a new connection is detected. Until disconnected, this
+# will be live and listening for any new data to arrive.
+#
+# This class is expected to be ran in its own thread which is why it inherits QThread. Once started in its own thread,
+# the overloaded function 'run()' will be called which will kick start tcpServer to begin listening for new connections
+# as well as make the necessary connections between signals and slots.
+#
+# Once data has been read (be it files or messages), signals are sent back out where any subscribed classes can listen
+# in and make use of that data for their own processing. In this way the only domain that this class knows of is its own
+# networking one. It does not know what happens to the data it reads or writes.
+#
+# SIGNALS
+#   messageReceived(str)
+#   fileReceived(str, int, str)
+#   pairStateChanged(SocketState)
+#   pairSuccess()
+#   serverReady(int)
+#
+# SLOTS
+#   def on_connection_accepted()
+#   def on_connection_failed(error)
+#   def on_connectionState_changed(state)
+#   def on_newConnection()
+#
+########################################################################################################################
+class Communication(QtCore.QThread):
+    HEADER_SIZE = 6  # 4 bytes for payload size, 2 bytes for payload type
+
+    """""""""""""""""""""""""""""""""""""""
+    MESSAGE/FILE SIGNALS
+    """""""""""""""""""""""""""""""""""""""
+    messageReceived = QtCore.pyqtSignal(str)
+    fileReceived = QtCore.pyqtSignal(str, int, str)
+
+    """""""""""""""""""""""""""""""""""""""
+    PAIRING SIGNALS
+    """""""""""""""""""""""""""""""""""""""
+    listenError = QtCore.pyqtSignal()
+    pairStateChanged = QtCore.pyqtSignal(int)
+    pairSuccess = QtCore.pyqtSignal()
+    serverReady = QtCore.pyqtSignal(int)
+
+    def __init__(self):
+        super(Communication, self).__init__()
+
+        # IO variables
+        self.__blockSize = 0
+
+        self.__msgType = -1
+        self.__pairPort = -1
+
+        # Variables to be passed by signals
+        self.__msg = None
+        self.__fileHash = ""
+        self.__fileName = ""
+        self.__fileSize = 0
+        self.__rawFile = None
+        self.__listenPortLive = False
+
+        # One TcpSocket is for the server portion of the program (_receive)
+        # the other is for the client portion of the program (_request)
+        self.__tcpSocket_receive = QtNetwork.QTcpSocket(self)
+        self.__tcpSocket_request = QtNetwork.QTcpSocket(self)
+        self.__tcpServer = QtNetwork.QTcpServer(self)
+
+    def run(self):
+        # connecting SIGNALS and SLOTS
+        self.__tcpSocket_request.connected.connect(self.on_connection_accepted)
+        self.__tcpSocket_request.error.connect(self.on_connection_failed)
+        self.__tcpSocket_request.stateChanged.connect(self.on_connectionState_changed)
+        self.__tcpServer.newConnection.connect(self.on_newConnection)
+
+        self.startTcpServer()
+        QtCore.QThread.exec_(self)
+
+    def on_connectionState_changed(self, state):
+        print "Socket state is now: " + str(self.__tcpSocket_request.state())
+        self.pairStateChanged.emit(state)
+
+    def on_connection_failed(self, error):
+        print error
+        print "Something went wrong"
+
+    # move to its own function so that this won't be running on the main thread
+    def startTcpServer(self):
+        # begin listening at a random port
+        if not self.__tcpServer.listen(QtNetwork.QHostAddress("localhost"), randint(5000, 65535)):
+            # server couldn't start
+            self.__listenPortLive = False
+            self.listenError.emit()
+        else:
+            # server started successfully
+            self.__listenPortLive = True
+            self.serverReady.emit(self.__tcpServer.serverPort())
+
+    def on_newConnection(self):
+        # assign the incoming connection to a socket and connect that socket's
+        # readyRead signal to read the message
+        self.__tcpSocket_receive = self.__tcpServer.nextPendingConnection()
+        self.__tcpSocket_receive.readyRead.connect(self.read)
+
+    # write routine which doesn't care about what it's writing or who it's writing to
+    def write(self, payload_t, payload):
+        print "Writing from thread: " + str(int(QtCore.QThread.currentThreadId()))
+        # will contain the message
+        block = QtCore.QByteArray()
+
+        # inform that this message is to show the listening port
+        # prepare the output stream
+        out = QtCore.QDataStream(block, QtCore.QIODevice.WriteOnly)
+        out.setVersion(QtCore.QDataStream.Qt_4_0)
+        out.writeUInt32(0)  # placeholder for payload size
+        out.writeUInt16(payload_t)  # payload_t is int, constructor only takes str
+
+        # print "past header"
+        # determine which procedure to use when writing to the datastream
+        if payload_t == Config.Port_t or payload_t == Config.Message_t or payload_t == Config.FileName_t:
+            # payload is a string
+            out.writeString(payload)
+        elif payload_t == Config.FileData_t:
+            # payload is a byte array
+            out.writeRawData(payload)
+
+        # print "data on datastream"
+        # go back to the start and write the size of the payload
+        out.device().seek(0)
+        out.writeUInt32(block.size() - self.HEADER_SIZE)
+
+        self.__tcpSocket_request.write(block)
+
+    # returns QDataStream object for processing
+    def read(self):
+        print "Reading from thread: " + str(int(QtCore.QThread.currentThreadId()))
+        # Constructs a data stream that uses the I/O device.
+        instr = QtCore.QDataStream(self.__tcpSocket_receive)
+        instr.setVersion(QtCore.QDataStream.Qt_4_0)
+
+        # if we haven't read anything yet from the server and size is not set
+        if self.__blockSize == 0:
+            # the first two bytes are reserved for the size of the payload.
+            # must check it is at least that size to take in a valid payload size.
+            if self.__tcpSocket_receive.bytesAvailable() < self.HEADER_SIZE:
+                print "smaller than header"
+                return
+
+            # read the size of the byte array payload from server.
+            # Once the first flag is consumed, read the message type on the payload
+            print "getting new payload info"
+
+            self.__blockSize = instr.readUInt32()
+            self.__msgType = instr.readUInt16()
+            print "Msg type: " + str(self.__msgType)
+        # the data is incomplete so we return until the data is good
+        if self.__tcpSocket_receive.bytesAvailable() < self.__blockSize:
+            print "message incomplete"
+            return
+
+        # sort out what to do with the received data
+        # go back to the start of the payload
+        if self.__msgType == Config.Port_t:
+            # message contains port information
+            # save the port to set the request socket to point at that port
+            # sometimes required.. ie. over local network this seemed to become an issue.. fine local
+            self.__pairPort = instr.readString()
+            self.pair(self.__tcpSocket_receive.peerAddress(), int(self.__pairPort))
+
+        elif self.__msgType == Config.Message_t:
+            # normal message
+            # read in the message and inform connected objects about the contents
+            msg = instr.readString()
+            self.messageReceived.emit(msg)
+        elif self.__msgType == Config.FileData_t:
+            self.__rawFile = instr.readRawData(self.__blockSize)
+
+            # downloads go to the user's desktop folder. will emit a signal when finished
+            file = QtCore.QFile(Config.DownloadDir + self.__fileName)
+            file.open(QtCore.QIODevice.WriteOnly)
+            file.write(self.__rawFile)
+            file.close()
+
+            fileSize = QtCore.QFileInfo(file).size() / 1000
+            fileHash = hashlib.sha256(self.__rawFile).hexdigest()
+            self.fileReceived.emit(self.__fileName, fileSize, fileHash)
+        elif self.__msgType == Config.FileName_t:
+            # store the file name. used when saving the received file that should come straight after this
+            self.__fileName = instr.readString()
+            print "received file name: " + str(self.__fileName)
+
+        # reset the block size for next msg to be read
+        self.__blockSize = 0
+        self.__msgType = -1
+
+        # recursive call to check if there is data still to be read.
+        self.read()
+
+    def pair(self, host, port):
+        # allows for connection between two chatting programmes
+        # possibly the place where AES, SHA and RSA will take place
+        # print "pairing from thread: " + str(int(QtCore.QThread.currentThreadId()))
+        if self.__tcpSocket_request.state() != QtNetwork.QAbstractSocket.ConnectedState:
+            print "Pairing bruh"
+            self.__tcpSocket_request.connectToHost(host, int(port))
+            print "Called connectToHost yo"
+
+    def on_connection_accepted(self):
+        print "connection accepted in thread: " + str(int(QtCore.QThread.currentThreadId()))
+        # pairing done, let connected objects know
+        self.pairSuccess.emit()
+
+        # attempt to connect to the listening port of the other user
+        self.write(Config.Port_t, str(self.__tcpServer.serverPort()))
+
+    def tearDown(self):
+        # disconnect both request and receive sockets
+        self.__tcpSocket_request.abort()
+        self.__tcpSocket_receive.abort()
+
+
+########################################################################################################################
+# Logic
+#
+# DESCRIPTION:
+# Handles the communication between the Communication and ChatWindow classes. Acts as the "API layer" of sorts
+# which is accessible to the ChatWindow class. This way the GUI doesn't need to know anything about how the
+# underlying communication works and needs only access the methods available in this class.
+#
+# Cross-class interaction is done through the use of signals and sockets. Signals are required to be sent to the
+# Communications class as that is running on a separate thread, meaning that calling its functions directly would
+# cause unintentional behavior. The GUI is then sent signals to update its components with new information such as
+# files or messages received.
+#
+# File i/o tasks are run on a separate thread to make sure that the GUI isn't impacted. For the same reason, the
+# Communication class is also set to run on a separate thread. However with the use of signals and sockets this isn't
+# necessary since it will never take over the GUI thread. It was simply done for convenience.
+#
+# SLOTS:
+#   def forwardReceivedMessage(msg)
+#   def on_pair_state_changed(state)
+#   def on_file_received(name, size, hash)
+#   def on_server_ready(port)
+#   def on_file_loaded(data, name, size, hash)
+#
+# SIGNALS:
+#   outGoingMessageReady(int, QString)
+#   messageReceived(str)
+#   pairRequest(str, str)
+#   tearDownInitiated()
+#   forwardServerPort(int)
+#   forwardConnectionStatus(str)
+#   forwardSocketState(str)
+#
+# PUBLIC FUNCTIONS
+#   def deliverMessage(msg)
+#   def deliverFile(file)
+#   def tearDownConnection()
+#   def beginPairing(address, port
+#   def attachFile(file)
+########################################################################################################################
+
+class Logic(QtCore.QObject):
+    """""""""""""""""""""""""""""""""""""""
+    MESSAGE SIGNALS
+    """""""""""""""""""""""""""""""""""""""
+    # To comms class
+    outgoingMessageReady = QtCore.pyqtSignal(int, QtCore.QString)
+
+    # to GUI class
+    messageReceived = QtCore.pyqtSignal(str)
+
+    """""""""""""""""""""""""""""""""""""""
+    CONNECTION SIGNALS
+    """""""""""""""""""""""""""""""""""""""
+    # To comms class
+    pairRequest = QtCore.pyqtSignal(str, str)
+    tearDownInitiated = QtCore.pyqtSignal()
+
+    # To GUI class
+    forwardServerPort = QtCore.pyqtSignal(int)
+    forwardConnectionStatus = QtCore.pyqtSignal(str)
+    forwardSocketState = QtCore.pyqtSignal(str)
+
+    """""""""""""""""""""""""""""""""""""""
+    FILE SIGNALS
+    """""""""""""""""""""""""""""""""""""""
+    # To GUI
+    fileAttached = QtCore.pyqtSignal()
+    forwardFileDetails = QtCore.pyqtSignal(str, int, str)
+    fileReadyForWrite = QtCore.pyqtSignal(int, QtCore.QByteArray)
+    readAttachedFile = QtCore.pyqtSignal(str)
+    fileRead = QtCore.pyqtSignal()
+
+    def __init__(self):
+        QtCore.QObject.__init__(self)
+
+        # handles all communication logic
+        self.comm = Communication()
+
+        # sending data
+        self.rawFile = None
+        self.fileName = ""
+        self.fileSize = 0
+        self.fileHash = None
+
+        # flg to check if a file is attached to the message
+        self.fileAttached = False
+
+        # connect comm signal/slots
+        self.comm.messageReceived.connect(self.forwardReceivedMessage)
+        self.comm.pairStateChanged.connect(self.on_pair_state_changed)
+        self.comm.listenError.connect(lambda: self.displayListenStatus(self.comm.__listenPortLive))
+        self.comm.fileReceived.connect(self.on_file_received)
+        self.comm.serverReady.connect(self.on_server_ready)
+
+        self.commThread = QtCore.QThread()
+        self.comm.moveToThread(self.commThread)
+
+        self.outgoingMessageReady.connect(self.comm.write)
+        self.fileReadyForWrite.connect(self.comm.write)
+        self.pairRequest.connect(self.comm.pair)
+        self.tearDownInitiated.connect(self.comm.tearDown)
+        self.commThread.started.connect(self.comm.run)
+        self.commThread.start()
+
+        # file IO stuff
+        self.fileIO = FileIOThread()
+        self.fileIO.readComplete.connect(self.on_file_loaded)
+
+        self.fileIOThread = QtCore.QThread()
+        self.fileIO.moveToThread(self.fileIOThread)
+
+        self.readAttachedFile.connect(self.fileIO.readFile)
+        self.fileIOThread.started.connect(self.fileIO.run)
+        self.fileIOThread.start()
+
+    def on_pair_state_changed(self, state):
+        if state == 0:
+            self.forwardSocketState.emit("Disconnected")
+        elif state == 1:
+            self.forwardSocketState.emit("Looking up host name..")
+        elif state == 2:
+            self.forwardSocketState.emit("Connecting..")
+        elif state == 3:
+            self.forwardSocketState.emit("Connected")
+        elif state == 6:
+            self.forwardSocketState.emit("Disconnecting..")
+
+    def on_file_received(self, name, size, hash):
+        print "received file"
+        self.forwardFileDetails.emit(name, size, hash)
+
+    def on_file_loaded(self, data, name, size, hash):
+        print "Got to on_fileReady"
+        # get the data
+        self.rawFile = data
+
+        # extract name, size and hash
+        self.fileName = name
+        self.fileSize = size
+        self.fileHash = hash
+
+        self.fileAttached = True
+        self.fileRead.emit()
+
+    def deliverFile(self):
+        # inform the user about the incoming file
+        self.outgoingMessageReady.emit(Config.Message_t, "Sending file with hash: " + self.fileHash)
+
+        # first send the file name
+        self.outgoingMessageReady.emit(Config.FileName_t, self.fileName)
+
+        # send out the file and reset the file attached flag
+        self.fileReadyForWrite.emit(Config.FileData_t, self.rawFile)
+
+        # file has been sent. do tear down to prepare for next file
+        self.fileAttached = False
+
+    def attachFile(self, path):
+        # if the path isn't empty, set the file flag to true and prep the file for transfer
+        if path:
+            print "File Attached"
+            self.readAttachedFile.emit(path)
+
+    def on_server_ready(self, port):
+        self.forwardServerPort.emit(port)
+
+    def forwardReceivedMessage(self, msg):
+        print "Forwarding message"
+        self.messageReceived.emit(msg)
+
+    def on_messageReady(self, payload_t, payload):
+        print "inside logic"
+        self.outgoingMessageReady.emit(payload_t, payload)
+        # self.comm.write(payload_t, payload)
+
+    def beginPairing(self, address, port):
+        print "pairing from logic"
+        # ensure that each connection/reconnect is a fresh one
+
+        self.tearDownInitiated.emit()
+        # get the connection details from the connection dialog
+        self.pairRequest.emit(address, port)
+        # self.comm.pair(address, port)
+
+    def deliverMessage(self, msg):
+        print "Sending msg from Logic" + str(int(QtCore.QThread.currentThreadId()))
+
+        # check if the msg is empty
+        if msg:
+            self.outgoingMessageReady.emit(Config.Message_t, msg)
+
+    def displayMessage(self, msg, sender):
+        self.messageReceived.emit(msg, sender)
+        print "got message: " + msg
+
+    def tearDownConnection(self):
+        self.tearDownInitiated.emit()
+
+
+########################################################################################################################
+# FileIOThread
+#
+# //TO DO
+#
+########################################################################################################################
+class FileIOThread(QtCore.QThread):
+    readComplete = QtCore.pyqtSignal(QtCore.QByteArray, str, int, str)
+    error = QtCore.pyqtSignal()
+
+    def __init__(self):
+        QtCore.QThread.__init__(self)
+
+    def run(self):
+        # run within its own event loop
+        QtCore.QThread.exec_(self)
+
+    def readFile(self, path):
+        print "Reading file"
+        attachedFile = QtCore.QFile(path)
+
+        # check that the file opens successfully
+        if not attachedFile.open(QtCore.QIODevice.ReadOnly):
+            return False
+
+        # get file info
+        fileInfo = QtCore.QFileInfo(attachedFile.fileName())
+
+        # read the file and prepare for sending
+        rawFile = attachedFile.readAll()
+
+        fileName = fileInfo.fileName()
+        fileSize = fileInfo.size() / 1000
+        fileHash = hashlib.sha256(rawFile).hexdigest()
+
+        self.readComplete.emit(rawFile, fileName, fileSize, fileHash)
+
+    def writeToFile(self, data):
+        pass
+
+    # return byte array
+    def bytesToFile(self, data, path):
+        # open file with given path (which includes file name)
+        file = QtCore.QFile(path)
+        file.open(QtCore.QIODevice.WriteOnly)
+
+        file.write(data)
+        file.close()
+
+        self.readComplete.emit()
+
+
+########################################################################################################################
+# AboutDialog
+#
+# DESCRIPTION:
+# Provides a window which gives a description on what the program is and what is was built with.
+#
+# The UI is imported from a python file that was generated from the XML file designed in Qt Designer using pyuic4.
+########################################################################################################################
+class AboutDialog(QtGui.QDialog, ui_about.Ui_Dialog):
+    def __init__(self, parent):
+        super(AboutDialog, self).__init__(parent)
+        self.setupUi(self)
+
+        # keep focus fixed to this window
+        self.setModal(True)
+
+        # prevent resizing
+        self.setFixedSize(451, 213)
+
+
+########################################################################################################################
+# ConnectDialog
+#
+# DESCRIPTION:
+# Provides a window which allows the user to initiate a connection with another client.
+#
+# The UI is imported from a python file that was generated from the XML file designed in Qt Designer using pyuic4.
+#
+# SIGNALS:
+#   inputReady(str, str)
+#
+# SLOTS:
+#   def on_input_changed()
+#   def on_connect_clicked()
+#
+# PUBLIC FUNCTIONS:
+#   isValidInput()
+########################################################################################################################
+class ConnectDialog(QtGui.QDialog, ui_connect.Ui_Dialog):
+    # SIGNALS
+    inputReady = QtCore.pyqtSignal(str, str)
+
+    def __init__(self, parent):
+        super(ConnectDialog, self).__init__(parent)
+        self.setupUi(self)
+
+        # keep focus fixed to this window
+        self.setModal(True)
+
+        # prevent resizing
+        self.setFixedSize(254, 96)
+
+        # default values for connection
+        self.lineEdit.setText("localhost")
+
+        # connect SIGNALS to SLOTS
+        self.lineEdit.textChanged.connect(self.on_input_changed)
+        self.lineEdit_2.textChanged.connect(self.on_input_changed)
+        self.lineEdit.returnPressed.connect(self.on_connect_clicked)
+        self.lineEdit_2.returnPressed.connect(self.on_connect_clicked)
+        self.pushButton.clicked.connect(self.on_connect_clicked)
+        self.pushButton.setDisabled(True)
+
+    def on_input_changed(self):
+        # disable the button if input is not valid
+        if self.isValidInput():
+            self.pushButton.setEnabled(True)
+        else:
+            self.pushButton.setDisabled(True)
+
+    def on_connect_clicked(self):
+        # inform other objects that the user has completed the form
+        # close the form once done.
+        if self.isValidInput():
+            self.inputReady.emit(self.lineEdit.text(), self.lineEdit_2.text())
+            self.close()
+
+    # can be made more rigorous if felt needed
+    def isValidInput(self):
+        # check if either of the inputs are empty
+        if self.lineEdit.text() and self.lineEdit_2.text():
+            return True
+        else:
+            return False
+
+
+########################################################################################################################
+# Config
+#
+# DESCRIPTION:
+# Collection of constants used throughout the program
+########################################################################################################################
+class Config:
+    DownloadDir = QtCore.QDir.homePath() + "\\Desktop\\"
+    Port_t, Message_t, FileData_t, FileName_t = range(4)  # Message types
+
+
 if __name__ == "__main__":
     app = QtGui.QApplication(sys.argv)
 
@@ -687,6 +835,6 @@ if __name__ == "__main__":
     appId = u'dollars.chat.app'
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(appId)
 
-    chat = MainWindow()
+    chat = ChatWindow()
     chat.show()
     exit(app.exec_())
