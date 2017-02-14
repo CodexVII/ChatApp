@@ -198,9 +198,9 @@ class ChatWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
     # Updates the field which notifies the user about the current file
     # that's attached
     ####################################################################
-    def on_file_attached(self):
-        self.textBrowser_2.setText("Attached: " + self.logic.fileName)
-        self.textBrowser_2.setToolTip("Attached: " + self.logic.fileName)
+    def on_file_attached(self, fileName):
+        self.textBrowser_2.setText("Attached: " + fileName)
+        self.textBrowser_2.setToolTip("Attached: " + fileName)
 
     ####################################################################
     # on_socketState_changed
@@ -453,11 +453,10 @@ class Logic(QtCore.QObject):
     FILE SIGNALS
     """""""""""""""""""""""""""""""""""""""
     # To GUI class
-    fileAttached = QtCore.pyqtSignal()
     forwardFileDetails = QtCore.pyqtSignal(str, int, str)
     fileReadyForWrite = QtCore.pyqtSignal(int, QtCore.QByteArray)
     readAttachedFile = QtCore.pyqtSignal(str)
-    fileRead = QtCore.pyqtSignal()
+    fileRead = QtCore.pyqtSignal(str)
 
     def __init__(self):
         QtCore.QObject.__init__(self)
@@ -470,9 +469,6 @@ class Logic(QtCore.QObject):
         self.fileName = ""
         self.fileSize = 0
         self.fileHash = None
-
-        # flg to check if a file is attached to the message
-        self.fileAttached = False
 
         # connect comm signal/slots
         self.comm.messageReceived.connect(self.forwardReceivedMessage)
@@ -528,8 +524,7 @@ class Logic(QtCore.QObject):
         self.fileSize = size
         self.fileHash = hash
 
-        self.fileAttached = True
-        self.fileRead.emit()
+        self.fileRead.emit(self.fileName)
 
     def deliverFile(self):
         # inform the user about the incoming file
@@ -540,7 +535,6 @@ class Logic(QtCore.QObject):
 
         # send out the file and reset the file attached flag
         self.fileReadyForWrite.emit(Config.FileData_t, self.rawFile)
-        self.fileAttached = False
 
         # send out a signal with the file hash
         self.fileSent.emit(self.fileHash)
