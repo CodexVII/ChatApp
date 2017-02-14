@@ -206,6 +206,7 @@ class Communication(QtCore.QThread):
 
     def tearDown(self):
         self.__tcpSocket_request.abort()
+        self.__tcpSocket_receive.abort()
 
 class AboutDialog(QtGui.QDialog, ui_about.Ui_Dialog):
     def __init__(self, parent):
