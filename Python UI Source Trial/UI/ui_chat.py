@@ -30,6 +30,7 @@ class Ui_MainWindow(object):
         self.centralwidget.setObjectName(_fromUtf8("centralwidget"))
         self.lineEdit = QtGui.QLineEdit(self.centralwidget)
         self.lineEdit.setGeometry(QtCore.QRect(20, 290, 441, 21))
+        self.lineEdit.setText(_fromUtf8(""))
         self.lineEdit.setObjectName(_fromUtf8("lineEdit"))
         self.pushButton_2 = QtGui.QPushButton(self.centralwidget)
         self.pushButton_2.setGeometry(QtCore.QRect(560, 290, 71, 23))
@@ -74,10 +75,7 @@ class Ui_MainWindow(object):
         self.textBrowser_2.setObjectName(_fromUtf8("textBrowser_2"))
         self.textBrowser = QtGui.QTextBrowser(self.centralwidget)
         self.textBrowser.setGeometry(QtCore.QRect(20, 10, 441, 271))
-        self.textBrowser.setStyleSheet(_fromUtf8("QTextBrowser{\n"
-"    font-family: \"OpenSansEmoji\";\n"
-"    font-size: 15px;    \n"
-"}"))
+        self.textBrowser.setStyleSheet(_fromUtf8(""))
         self.textBrowser.setObjectName(_fromUtf8("textBrowser"))
         MainWindow.setCentralWidget(self.centralwidget)
         self.menuBar = QtGui.QMenuBar(MainWindow)
@@ -97,8 +95,15 @@ class Ui_MainWindow(object):
         self.actionConnect.setObjectName(_fromUtf8("actionConnect"))
         self.actionAbout = QtGui.QAction(MainWindow)
         self.actionAbout.setObjectName(_fromUtf8("actionAbout"))
+        self.actionDisconnect = QtGui.QAction(MainWindow)
+        self.actionDisconnect.setObjectName(_fromUtf8("actionDisconnect"))
+        self.actionQuit = QtGui.QAction(MainWindow)
+        self.actionQuit.setObjectName(_fromUtf8("actionQuit"))
         self.menuMenu.addAction(self.actionConnect)
+        self.menuMenu.addAction(self.actionDisconnect)
+        self.menuMenu.addSeparator()
         self.menuMenu.addAction(self.actionAbout)
+        self.menuMenu.addAction(self.actionQuit)
         self.menuBar.addAction(self.menuMenu.menuAction())
 
         self.retranslateUi(MainWindow)
@@ -121,11 +126,13 @@ class Ui_MainWindow(object):
         self.textBrowser.setHtml(_translate("MainWindow", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
 "<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
 "p, li { white-space: pre-wrap; }\n"
-"</style></head><body style=\" font-family:\'OpenSansEmoji\'; font-size:15px; font-weight:400; font-style:normal;\">\n"
-"<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-family:\'MS Shell Dlg 2\'; font-size:8pt;\"><br /></p></body></html>", None))
+"</style></head><body style=\" font-family:\'MS Shell Dlg 2\'; font-size:8.25pt; font-weight:400; font-style:normal;\">\n"
+"<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-size:8pt;\"><br /></p></body></html>", None))
         self.menuMenu.setTitle(_translate("MainWindow", "Menu", None))
         self.actionLogout.setText(_translate("MainWindow", "Logout", None))
         self.actionSave.setText(_translate("MainWindow", "Save", None))
         self.actionConnect.setText(_translate("MainWindow", "Connect..", None))
         self.actionAbout.setText(_translate("MainWindow", "About", None))
+        self.actionDisconnect.setText(_translate("MainWindow", "Disconnect", None))
+        self.actionQuit.setText(_translate("MainWindow", "Quit", None))
 

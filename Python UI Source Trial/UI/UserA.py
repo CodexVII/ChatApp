@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from PyQt4 import Qt, QtGui, QtCore, QtNetwork
+from PyQt4 import QtGui, QtCore, QtNetwork
 from random import randint
 from time import strftime, gmtime
 from emoji import emojize
@@ -18,7 +18,6 @@ class Config:
 # Inherit QObject to use signals
 class Communication(QtCore.QThread):
     HEADER_SIZE = 6  # 4 bytes for payload size, 2 bytes for payload type
-    CONNECTED = False  # used to prevent infinite pairing loop
 
     """""""""""""""""""""""""""""""""""""""
     MESSAGE/FILE SIGNALS
@@ -72,7 +71,6 @@ class Communication(QtCore.QThread):
         self.pairStateChanged.emit(state)
 
     def on_connection_failed(self, error):
-        self.CONNECTED = False
         print error
         print "Something went wrong"
 
@@ -454,7 +452,6 @@ class Logic(QtCore.QObject):
     def beginPairing(self, address, port):
         print "pairing from logic"
         # ensure that each connection/reconnect is a fresh one
-        self.comm.CONNECTED = False
 
         self.tearDownInitiated.emit()
         # get the connection details from the connection dialog
@@ -483,7 +480,7 @@ class Logic(QtCore.QObject):
         print "got message: " + msg
 
     def tearDownConnection(self):
-        self.tearaDownInitiated.emit()
+        self.tearDownInitiated.emit()
 
 # the MainWindow class should only be concerned about displying/updating information on the screen.
 # it should not be concerned about how any of the logic works
@@ -532,7 +529,10 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         self.lineEdit.textChanged.connect(self.on_messageDraft_changed)
         self.actionConnect.triggered.connect(self.on_connect_clicked)
         self.actionAbout.triggered.connect(self.on_about_clicked)
+        self.actionQuit.triggered.connect(self.on_quit_clicked)
+        self.actionDisconnect.triggered.connect(self.on_disconnect_clicked)
         self.connectDialog.inputReady.connect(self.on_connectInfo_ready)
+
 
         # user hasn't placed any input yet so disable the button
         self.pushButton.setDisabled(True)
@@ -602,7 +602,11 @@ class MainWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         self.statusBar.showMessage(status)
 
     def on_disconnect_clicked(self):
-        self.comm
+        self.logic.tearDownConnection()
+
+    def on_quit_clicked(self):
+        QtCore.QCoreApplication.quit()
+
     # send out a message to the server whenever the user hits
     # the 'send' button. It will take in whatever is on the
     # LineEdit box and write it into    a socket
