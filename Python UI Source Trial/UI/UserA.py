@@ -102,8 +102,9 @@ class ChatWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         self.pushButton.setDisabled(True)
 
         # set font for chat box and user input
-        Qt.QFontDatabase.addApplicationFont("seguiemj.ttf")
-        self.textBrowser.setStyleSheet("""
+        # Qt.QFontDatabase.addApplicationFont("seguiemj.ttf")
+        Qt.QFontDatabase.addApplicationFont("Segoe-UI-Emoji.ttf")
+        sel f.textBrowser.setStyleSheet("""
                .QTextBrowser {
                    font-family: "Segoe UI Emoji";
                    font-size: 14px;
