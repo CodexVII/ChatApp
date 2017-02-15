@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from PyQt4 import QtGui, QtCore, QtNetwork
+from PyQt4 import Qt, QtGui, QtCore, QtNetwork
 from random import randint
 from time import strftime, gmtime
 from emoji import emojize
@@ -31,7 +31,8 @@ import hashlib
 #           call the logic class functions if necessary (for functional actions)
 #
 #   slot event result
-#       process result and give feedback in GUI
+#       process result in logic
+#           give feedback in GUI
 #
 # SIGNALS:
 #   -
@@ -45,13 +46,13 @@ import hashlib
 #   def on_quit_clicked()
 #   def on_disconnect_clicked()
 #   def on_connectInfo_ready()
-#   def displayMessage(msg, sender)
 #   def on_serverPort_ready(port)
-#   def showFileInfo(fileName, fileSize, hash, sender)
 #   def on_socketState_changed(status)
 #   def on_file_attached()
 #
 # PUBLIC FUNCTIONS
+#   def showFileInfo(fileName, fileSize, hash, sender)
+#   def displayMessage(msg, sender)
 #   def sendMessage()
 #   def sendFile()
 #   def keyPressEvent(event)
@@ -101,8 +102,10 @@ class ChatWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         self.pushButton.setDisabled(True)
 
         # set font for chat box and user input
+        Qt.QFontDatabase.addApplicationFont("seguiemj.ttf")
         self.textBrowser.setStyleSheet("""
                .QTextBrowser {
+                   font-family: "Segoe UI Emoji";
                    font-size: 14px;
                    }
                """)
@@ -281,6 +284,8 @@ class ChatWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
     #   fileName    -   name of the file    (str)
     #   fileSize    -   size of the file    (int)
     #   hash        -   hash of the file    (str)
+    #   sender      -   if the file originated from the user or from
+    #                   someone else. Default to False.     (bool)
     ####################################################################
     def showFileInfo(self, fileName, fileSize, hash, sender=False):
         # Prepare dialog window and disable user input outside the box while active
