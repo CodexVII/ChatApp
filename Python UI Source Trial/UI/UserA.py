@@ -104,7 +104,7 @@ class ChatWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         # set font for chat box and user input
         # Qt.QFontDatabase.addApplicationFont("seguiemj.ttf")
         Qt.QFontDatabase.addApplicationFont("Segoe-UI-Emoji.ttf")
-        sel f.textBrowser.setStyleSheet("""
+        self.textBrowser.setStyleSheet("""
                .QTextBrowser {
                    font-family: "Segoe UI Emoji";
                    font-size: 14px;
@@ -504,6 +504,18 @@ class Logic(QtCore.QObject):
         self.fileIOThread.started.connect(self.fileIO.run)
         self.fileIOThread.start()
 
+    ####################################################################
+    # on_pair_state_changed
+    #
+    # Categorises the status of the request port's state based on
+    # the state code provided.
+    #
+    # EMITS
+    #   forwardSocketState(state)
+    #
+    # PARAMS
+    #   state   -   status of the listening port    (str)
+    ####################################################################
     def on_pair_state_changed(self, state):
         if state == 0:
             self.forwardSocketState.emit("Disconnected")
@@ -516,10 +528,37 @@ class Logic(QtCore.QObject):
         elif state == 6:
             self.forwardSocketState.emit("Disconnecting..")
 
+    ####################################################################
+    # on_file_received
+    #
+    # This is called whenever files have been read into the receiver
+    # socket.
+    #
+    # EMITS
+    #   forwardFileDetails(str, int, str)
+    #
+    # PARAMS
+    #   name    -   name of the file
+    #   size    -   size of the file
+    #   hash    -   hash of the file
+    ####################################################################
     def on_file_received(self, name, size, hash):
         print "received file"
         self.forwardFileDetails.emit(name, size, hash)
 
+    ####################################################################
+    # on_file_loaded
+    #
+    # Called whenever a file has been stored into memory when the user
+    # requests to attach it to a message. Separate from on_file_received
+    # as this is from a literal FileIO operation
+    #
+    # PARAMS
+    #   data    -   raw file data in bit
+    #   name    -   name of the file
+    #   size    -   size of the file
+    #   hash    -   hash of the file
+    ####################################################################
     def on_file_loaded(self, data, name, size, hash):
         print "Got to on_fileReady"
         # get the data
@@ -532,6 +571,32 @@ class Logic(QtCore.QObject):
 
         self.fileRead.emit(self.fileName)
 
+    ####################################################################
+    # on_server_ready
+    #
+    # Called when the listening socket has successfully started and is
+    # listening for new connections
+    #
+    # EMITS
+    #   forwardServerPort(int)
+    #
+    ####################################################################
+    def on_server_ready(self, port):
+        # alert the UI about the port that the server is listening on
+        self.forwardServerPort.emit(port)
+
+    ####################################################################
+    # deliverFile
+    #
+    # Writes the file into the TCP stream to send it off to the listening
+    # socket.
+    #
+    # EMITS
+    #   outgoingMessageReady(int, str)
+    #   fileReadyForWrite(int, str)
+    #   fileSent(str)
+    #
+    ####################################################################
     def deliverFile(self):
         # inform the user about the incoming file
         self.outgoingMessageReady.emit(Config.Message_t, "Sending file with hash: " + self.fileHash)
@@ -545,24 +610,48 @@ class Logic(QtCore.QObject):
         # send out a signal with the file hash
         self.fileSent.emit(self.fileHash)
 
+    ####################################################################
+    # attachFile
+    #
+    # Called when the user requests to attach a file. The FileIO thread
+    # is alerted about the file to be attached.
+    #
+    # PARAMS
+    #   path    -   the complete path to the file to attached
+    ####################################################################
     def attachFile(self, path):
         # if the path isn't empty, set the file flag to true and prep the file for transfer
         if path:
             print "File Attached"
+            # signal out to the FileIO object that a file is ready to be read
             self.readAttachedFile.emit(path)
 
-    def on_server_ready(self, port):
-        self.forwardServerPort.emit(port)
-
+    ####################################################################
+    # forwardReceivedMessage
+    #
+    # Called when the receiving socket has received a message. Sends out
+    # the message to the UI to display it.
+    #
+    # EMITS
+    #   messageReceived(str)
+    #
+    ####################################################################
     def forwardReceivedMessage(self, msg):
         print "Forwarding message"
         self.messageReceived.emit(msg)
 
-    def on_messageReady(self, payload_t, payload):
-        print "inside logic"
-        self.outgoingMessageReady.emit(payload_t, payload)
-        # self.comm.write(payload_t, payload)
-
+    ####################################################################
+    # beginPairing
+    #
+    # Commences the pairing action between two applications. Alerts
+    # the communication class about an address and a port that it would
+    # like to communicate with.
+    #
+    # EMITS
+    #   address     -   host address of the target client   (str)
+    #   port        -   port of the receiving port  (int)
+    #
+    ####################################################################
     def beginPairing(self, address, port):
         print "pairing from logic"
         # ensure that each connection/reconnect is a fresh one
@@ -572,6 +661,18 @@ class Logic(QtCore.QObject):
         self.pairRequest.emit(address, port)
         # self.comm.pair(address, port)
 
+    ####################################################################
+    # deliverMessage
+    #
+    # Alerts the Communication object that a message is ready to be
+    # written into the stream
+    #
+    # PARAMS
+    #   msg     -   message to be sent (str)
+    #
+    # EMITS
+    #   outgoingMessageReady()
+    ####################################################################
     def deliverMessage(self, msg):
         print "Sending msg from Logic" + str(int(QtCore.QThread.currentThreadId()))
 
@@ -579,10 +680,30 @@ class Logic(QtCore.QObject):
         if msg:
             self.outgoingMessageReady.emit(Config.Message_t, msg)
 
+    ####################################################################
+    # displayMessage
+    #
+    # Alerts the GUI that a message has been received and would like to
+    # be displayed on the chat screen with the appropriate sender/receiver
+    # tag
+    #
+    # PARAMS
+    #   msg     -   message to be sent (str)
+    #   sender  -   flags the origination of the message being  (bool)
+    ####################################################################
     def displayMessage(self, msg, sender):
         self.messageReceived.emit(msg, sender)
         print "got message: " + msg
 
+    ####################################################################
+    # tearDownConnection
+    #
+    # Alerts the Communication object that a request to disconnect the
+    # socket has been made
+    #
+    # EMITS
+    #   tearDownInitiated()
+    ####################################################################
     def tearDownConnection(self):
         self.tearDownInitiated.emit()
 
