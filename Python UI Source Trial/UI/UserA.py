@@ -4,10 +4,15 @@ from random import randint
 from time import strftime, gmtime
 from emoji import emojize
 
+from Crypto.PublicKey import RSA
+from Crypto import Random
+import ast  # ast = Abstract Syntax Trees - used for decrypting message
+
 import sys
-import ui_chat, ui_connect, ui_about
+import ui_chat, ui_connect, ui_about, ui_demo
 import ctypes
 import hashlib
+import aes
 
 
 ########################################################################################################################
@@ -70,10 +75,6 @@ class ChatWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         # build UI from the one generated from pyuic4
         self.setupUi(self)
 
-        # Extra dialogs
-        self.connectDialog = ConnectDialog(self)
-        self.aboutDialog = AboutDialog(self)
-
         # Logic signals and slots
         self.logic = Logic()
         self.logic.messageReceived.connect(self.displayMessage)
@@ -87,6 +88,11 @@ class ChatWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         self.history = []
         self.currMsgIndex = -1
 
+        # connect dialog
+        self.connectDialog = ConnectDialog(self)
+        self.aboutDialog = AboutDialog(self)
+        self.demoDialog = DemoDialog(self)
+
         # UI signals to slots
         self.pushButton.clicked.connect(self.on_send_triggered)
         self.pushButton_2.clicked.connect(self.on_attach_clicked)
@@ -96,13 +102,13 @@ class ChatWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         self.actionAbout.triggered.connect(self.on_about_clicked)
         self.actionQuit.triggered.connect(self.on_quit_clicked)
         self.actionDisconnect.triggered.connect(self.on_disconnect_clicked)
+        self.actionDemo.triggered.connect(self.on_demo_clicked)
         self.connectDialog.inputReady.connect(self.on_connectInfo_ready)
 
         # user hasn't placed any input yet so disable the button
         self.pushButton.setDisabled(True)
 
         # set font for chat box and user input
-        # Qt.QFontDatabase.addApplicationFont("seguiemj.ttf")
         Qt.QFontDatabase.addApplicationFont("Segoe-UI-Emoji.ttf")
         self.textBrowser.setStyleSheet("""
                .QTextBrowser {
@@ -162,6 +168,9 @@ class ChatWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
     def on_about_clicked(self):
         self.aboutDialog.show()
 
+    def on_demo_clicked(self):
+        self.demoDialog.show()
+
     ####################################################################
     # on_attach_clicked:
     #
@@ -205,6 +214,10 @@ class ChatWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
     def on_file_attached(self, fileName):
         self.textBrowser_2.setText("Attached: " + fileName)
         self.textBrowser_2.setToolTip("Attached: " + fileName)
+
+        self.pushButton.setEnabled(True)
+        # cursor
+        # insert html
 
     ####################################################################
     # on_socketState_changed
@@ -274,6 +287,8 @@ class ChatWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
             # be attached
             self.textBrowser_2.clear()
             self.logic.deliverFile()
+
+        self.pushButton.setEnabled(False)
 
     ####################################################################
     # showFileInfo
@@ -788,6 +803,14 @@ class Communication(QtCore.QThread):
         self.__tcpSocket_request = QtNetwork.QTcpSocket(self)
         self.__tcpServer = QtNetwork.QTcpServer(self)
 
+    ####################################################################
+    # run
+    #
+    # When the communication thread is started this is the method that's
+    # called.
+    # Sets up the signals and slots for the request and server sockets
+    # for new connections
+    ####################################################################
     def run(self):
         # connecting SIGNALS and SLOTS
         self.__tcpSocket_request.connected.connect(self.on_connection_accepted)
@@ -798,10 +821,25 @@ class Communication(QtCore.QThread):
         self.startTcpServer()
         QtCore.QThread.exec_(self)
 
+    ####################################################################
+    # on_connectionState_changed
+    #
+    # The request socket has changed its state and this slot is called
+    # inform subscribed objects of the new state
+    #
+    # EMITS
+    #   pairStateChanged(str)
+    ####################################################################
     def on_connectionState_changed(self, state):
         print "Socket state is now: " + str(self.__tcpSocket_request.state())
         self.pairStateChanged.emit(state)
 
+    ####################################################################
+    # on_connection_failed
+    #
+    # EMITS
+    #   pairStateChanged(str)
+    ####################################################################
     def on_connection_failed(self, error):
         print error
         print "Something went wrong"
@@ -893,6 +931,7 @@ class Communication(QtCore.QThread):
             # normal message
             # read in the message and inform connected objects about the contents
             msg = instr.readString()
+
             self.messageReceived.emit(msg)
         elif self.__msgType == Config.FileData_t:
             self.__rawFile = instr.readRawData(self.__blockSize)
@@ -1002,7 +1041,7 @@ class FileIOThread(QtCore.QThread):
 # The UI is imported from a python file that was generated from the XML file designed in Qt Designer using pyuic4.
 ########################################################################################################################
 class AboutDialog(QtGui.QDialog, ui_about.Ui_Dialog):
-    def __init__(self, parent):
+    def __init__(self, parent=None):
         super(AboutDialog, self).__init__(parent)
         self.setupUi(self)
 
@@ -1011,6 +1050,110 @@ class AboutDialog(QtGui.QDialog, ui_about.Ui_Dialog):
 
         # prevent resizing
         self.setFixedSize(451, 213)
+
+
+class DemoDialog(QtGui.QDialog, ui_demo.Ui_Dialog):
+    def __init__(self, parent=None):
+        super(DemoDialog, self).__init__(parent)
+        self.setupUi(self)
+
+        # keep focus fixed to this window
+        self.setModal(True)
+
+        # connect button to slot
+        self.pushButton.clicked.connect(self.on_demo_clicked)
+        self.lineEdit.textChanged.connect(self.on_messageDraft_changed)
+        self.lineEdit_2.textChanged.connect(self.on_messageDraft_changed)
+        self.comboBox.currentIndexChanged.connect(self.on_comboBox_changed)
+        self.pushButton.setDisabled(True)
+
+    def on_demo_clicked(self):
+        self.textBrowser.clear()
+        crypt = self.comboBox.itemText(self.comboBox.currentIndex())
+
+        if crypt == "AES":
+            self.on_aes_requested()
+        elif crypt == "RSA":
+            self.on_rsa_requested()
+        elif crypt == "SHA-256":
+            self.on_sha_requested()
+
+    def on_comboBox_changed(self, index):
+        if index == 0:
+            self.lineEdit_2.setEnabled(True)
+            self.label_3.setEnabled(True)
+        else:
+            self.lineEdit_2.setDisabled(True)
+            self.label_3.setDisabled(True)
+
+    def on_messageDraft_changed(self):
+        if self.comboBox.itemText(self.comboBox.currentIndex()) == "AES":
+            if not str(self.lineEdit.text()) or not str(self.lineEdit_2.text()):
+                self.pushButton.setDisabled(True)
+            else:
+                self.pushButton.setEnabled(True)
+        else:
+            if not str(self.lineEdit.text()):
+                self.pushButton.setDisabled(True)
+            else:
+                self.pushButton.setEnabled(True)
+
+    def on_rsa_requested(self):
+        random_generator = Random.new().read
+        key = RSA.generate(1024, random_generator)  # generate public & private key
+        # 1024 = key length (bits) of RSA modulus
+
+        publickey = key.publickey()  # pub key export for exchange
+
+        data = str(self.lineEdit.text())
+        encrypted = publickey.encrypt(data, 32)  # 32 = number of bit
+        # message to encrypt is in the above line 'encrypt this message'
+
+        f = open('encryption.txt', 'w')
+        f.write(str(encrypted))  # write ciphertext to file
+        f.close()
+
+        # decrypted code below
+        f = open('encryption.txt', 'r')
+        message = f.read()
+
+        decrypted = key.decrypt(
+            ast.literal_eval(str(message)))  # literal_eval = used to safely evaluated the encrypted text
+        # key.decrypt will not evaluate str(encrypt) without
+        # literal_eval.  Error = str too large
+
+        self.textBrowser.insertHtml("<b>Plain:</b> " + data)
+        self.textBrowser.insertHtml("<br></br>")
+        self.textBrowser.insertHtml("<b>Encrypted:</b> " + str(encrypted))
+        self.textBrowser.insertHtml("<br></br>")
+        self.textBrowser.insertHtml("<b>Decrypted:</b> " + str(decrypted))
+
+    def on_aes_requested(self):
+        key = str(self.lineEdit_2.text())
+        ian = aes.AESCipher(key=key)
+
+        # create data (str)
+        data = str(self.lineEdit.text())
+        # encrypt data
+        encrypted = ian.encrypt(data)
+
+        # decrypt data
+        decrypted = ian.decrypt(encrypted)
+        self.textBrowser.insertHtml("<b>Plain:</b> " + data)
+        self.textBrowser.insertHtml("<br></br>")
+        self.textBrowser.insertHtml("<b>Key:</b> " + key)
+        self.textBrowser.insertHtml("<br></br>")
+        self.textBrowser.insertHtml("<b>Encrypted:</b> " + str(encrypted))
+        self.textBrowser.insertHtml("<br></br>")
+        self.textBrowser.insertHtml("<b>Decrypted:</b> " + str(decrypted))
+
+    def on_sha_requested(self):
+        data = str(self.lineEdit.text())
+        hash = hashlib.sha256(data).hexdigest()
+
+        self.textBrowser.insertHtml("<b>Plain:</b> " + data)
+        self.textBrowser.insertHtml("<br></br>")
+        self.textBrowser.insertHtml("<b>Hashed:</b> " + str(hash))
 
 
 ########################################################################################################################
@@ -1035,7 +1178,7 @@ class ConnectDialog(QtGui.QDialog, ui_connect.Ui_Dialog):
     # SIGNALS
     inputReady = QtCore.pyqtSignal(str, str)
 
-    def __init__(self, parent):
+    def __init__(self, parent=None):
         super(ConnectDialog, self).__init__(parent)
         self.setupUi(self)
 
