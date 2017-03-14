@@ -13,6 +13,7 @@ import ui_chat, ui_connect, ui_about, ui_demo
 import ctypes
 import hashlib
 import aes
+import socket
 
 
 ########################################################################################################################
@@ -108,6 +109,8 @@ class ChatWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         # user hasn't placed any input yet so disable the button
         self.pushButton.setDisabled(True)
 
+        self.lineEdit_4.setText(socket.gethostbyname(socket.gethostname()))
+
         # set font for chat box and user input
         Qt.QFontDatabase.addApplicationFont("Segoe-UI-Emoji.ttf")
         self.textBrowser.setStyleSheet("""
@@ -122,9 +125,12 @@ class ChatWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
                    }
                """)
 
-        print self.textBrowser.fontInfo().family() + str(self.textBrowser.fontInfo().pointSize())
+        # get local host connection
 
-        print "Main GUI initialised with ID: " + str(int(QtCore.QThread.currentThreadId()))
+
+        # print self.textBrowser.fontInfo().family() + str(self.textBrowser.fontInfo().pointSize())
+
+        # print "Main GUI initialised with ID: " + str(int(QtCore.QThread.currentThreadId()))
 
     ####################################################################
     # on_serverPort_ready:
@@ -180,7 +186,7 @@ class ChatWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
     # for transit.
     ####################################################################
     def on_attach_clicked(self):
-        print "Attaching file"
+        # print "Attaching file"
         path = QtGui.QFileDialog.getOpenFileName(self, 'Open file',
                                                  'c:\\', "Any (*)")
         self.logic.attachFile(path)
@@ -226,7 +232,7 @@ class ChatWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
     # in the status bar
     ####################################################################
     def on_socketState_changed(self, status):
-        print "Connection state: " + str(status)
+        # print "Connection state: " + str(status)
         self.statusBar.showMessage(status)
 
     ####################################################################
@@ -413,7 +419,7 @@ class ChatWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
 # which is accessible to the ChatWindow class. This way the GUI doesn't need to know anything about how the
 # underlying communication works and needs only access the methods available in this class.
 #
-# Cross-class interaction is done through the use of signals and sockets. Signals are required to be sent to the
+# Cross-class interaction is done through the use of signals and slots. Signals are required to be sent to the
 # Communications class as that is running on a separate thread, meaning that calling its functions directly would
 # cause unintentional behavior. The GUI is then sent signals to update its components with new information such as
 # files or messages received.
@@ -494,7 +500,7 @@ class Logic(QtCore.QObject):
         # connect comm signal/slots
         self.comm.messageReceived.connect(self.forwardReceivedMessage)
         self.comm.pairStateChanged.connect(self.on_pair_state_changed)
-        self.comm.listenError.connect(lambda: self.displayListenStatus(self.comm.__listenPortLive))
+#        self.comm.listenError.connect(lambda: self.displayListenStatus(self.comm.__listenPortLive))
         self.comm.fileReceived.connect(self.on_file_received)
         self.comm.serverReady.connect(self.on_server_ready)
 
@@ -558,7 +564,7 @@ class Logic(QtCore.QObject):
     #   hash    -   hash of the file
     ####################################################################
     def on_file_received(self, name, size, hash):
-        print "received file"
+        # print "received file"
         self.forwardFileDetails.emit(name, size, hash)
 
     ####################################################################
@@ -575,7 +581,7 @@ class Logic(QtCore.QObject):
     #   hash    -   hash of the file
     ####################################################################
     def on_file_loaded(self, data, name, size, hash):
-        print "Got to on_fileReady"
+        # print "Got to on_fileReady"
         # get the data
         self.rawFile = data
 
@@ -637,7 +643,7 @@ class Logic(QtCore.QObject):
     def attachFile(self, path):
         # if the path isn't empty, set the file flag to true and prep the file for transfer
         if path:
-            print "File Attached"
+            # print "File Attached"
             # signal out to the FileIO object that a file is ready to be read
             self.readAttachedFile.emit(path)
 
@@ -652,7 +658,7 @@ class Logic(QtCore.QObject):
     #
     ####################################################################
     def forwardReceivedMessage(self, msg):
-        print "Forwarding message"
+        # print "Forwarding message"
         self.messageReceived.emit(msg)
 
     ####################################################################
@@ -668,7 +674,7 @@ class Logic(QtCore.QObject):
     #
     ####################################################################
     def beginPairing(self, address, port):
-        print "pairing from logic"
+        # print "pairing from logic"
         # ensure that each connection/reconnect is a fresh one
 
         self.tearDownInitiated.emit()
@@ -689,7 +695,7 @@ class Logic(QtCore.QObject):
     #   outgoingMessageReady()
     ####################################################################
     def deliverMessage(self, msg):
-        print "Sending msg from Logic" + str(int(QtCore.QThread.currentThreadId()))
+        # print "Sending msg from Logic" + str(int(QtCore.QThread.currentThreadId()))
 
         # check if the msg is empty
         if msg:
@@ -708,7 +714,7 @@ class Logic(QtCore.QObject):
     ####################################################################
     def displayMessage(self, msg, sender):
         self.messageReceived.emit(msg, sender)
-        print "got message: " + msg
+        # print "got message: " + msg
 
     ####################################################################
     # tearDownConnection
@@ -831,7 +837,7 @@ class Communication(QtCore.QThread):
     #   pairStateChanged(str)
     ####################################################################
     def on_connectionState_changed(self, state):
-        print "Socket state is now: " + str(self.__tcpSocket_request.state())
+        # print "Socket state is now: " + str(self.__tcpSocket_request.state())
         self.pairStateChanged.emit(state)
 
     ####################################################################
@@ -841,13 +847,14 @@ class Communication(QtCore.QThread):
     #   pairStateChanged(str)
     ####################################################################
     def on_connection_failed(self, error):
-        print error
-        print "Something went wrong"
+        # print error
+        # print "Something went wrong"
+        pass
 
     # move to its own function so that this won't be running on the main thread
     def startTcpServer(self):
         # begin listening at a random port
-        if not self.__tcpServer.listen(QtNetwork.QHostAddress("localhost"), randint(5000, 65535)):
+        if not self.__tcpServer.listen(QtNetwork.QHostAddress(socket.gethostbyname(socket.gethostname())), randint(5000, 65535)):
             # server couldn't start
             self.__listenPortLive = False
             self.listenError.emit()
@@ -864,7 +871,7 @@ class Communication(QtCore.QThread):
 
     # write routine which doesn't care about what it's writing or who it's writing to
     def write(self, payload_t, payload):
-        print "Writing from thread: " + str(int(QtCore.QThread.currentThreadId()))
+        # print "Writing from thread: " + str(int(QtCore.QThread.currentThreadId()))
         # will contain the message
         block = QtCore.QByteArray()
 
@@ -875,7 +882,7 @@ class Communication(QtCore.QThread):
         out.writeUInt32(0)  # placeholder for payload size
         out.writeUInt16(payload_t)  # payload_t is int, constructor only takes str
 
-        # print "past header"
+        # # print "past header"
         # determine which procedure to use when writing to the datastream
         if payload_t == Config.Port_t or payload_t == Config.Message_t or payload_t == Config.FileName_t:
             # payload is a string
@@ -884,7 +891,7 @@ class Communication(QtCore.QThread):
             # payload is a byte array
             out.writeRawData(payload)
 
-        # print "data on datastream"
+        # # print "data on datastream"
         # go back to the start and write the size of the payload
         out.device().seek(0)
         out.writeUInt32(block.size() - self.HEADER_SIZE)
@@ -893,7 +900,7 @@ class Communication(QtCore.QThread):
 
     # returns QDataStream object for processing
     def read(self):
-        print "Reading from thread: " + str(int(QtCore.QThread.currentThreadId()))
+        # print "Reading from thread: " + str(int(QtCore.QThread.currentThreadId()))
         # Constructs a data stream that uses the I/O device.
         instr = QtCore.QDataStream(self.__tcpSocket_receive)
         instr.setVersion(QtCore.QDataStream.Qt_4_0)
@@ -903,19 +910,19 @@ class Communication(QtCore.QThread):
             # the first two bytes are reserved for the size of the payload.
             # must check it is at least that size to take in a valid payload size.
             if self.__tcpSocket_receive.bytesAvailable() < self.HEADER_SIZE:
-                print "smaller than header"
+                # print "smaller than header"
                 return
 
             # read the size of the byte array payload from server.
             # Once the first flag is consumed, read the message type on the payload
-            print "getting new payload info"
+            # print "getting new payload info"
 
             self.__blockSize = instr.readUInt32()
             self.__msgType = instr.readUInt16()
-            print "Msg type: " + str(self.__msgType)
+            # print "Msg type: " + str(self.__msgType)
         # the data is incomplete so we return until the data is good
         if self.__tcpSocket_receive.bytesAvailable() < self.__blockSize:
-            print "message incomplete"
+            # print "message incomplete"
             return
 
         # sort out what to do with the received data
@@ -948,7 +955,7 @@ class Communication(QtCore.QThread):
         elif self.__msgType == Config.FileName_t:
             # store the file name. used when saving the received file that should come straight after this
             self.__fileName = instr.readString()
-            print "received file name: " + str(self.__fileName)
+            # print "received file name: " + str(self.__fileName)
 
         # reset the block size for next msg to be read
         self.__blockSize = 0
@@ -960,14 +967,14 @@ class Communication(QtCore.QThread):
     def pair(self, host, port):
         # allows for connection between two chatting programmes
         # possibly the place where AES, SHA and RSA will take place
-        # print "pairing from thread: " + str(int(QtCore.QThread.currentThreadId()))
+        # # print "pairing from thread: " + str(int(QtCore.QThread.currentThreadId()))
         if self.__tcpSocket_request.state() != QtNetwork.QAbstractSocket.ConnectedState:
-            print "Pairing bruh"
+            # print "Pairing bruh"
             self.__tcpSocket_request.connectToHost(host, int(port))
-            print "Called connectToHost yo"
+            # print "Called connectToHost yo"
 
     def on_connection_accepted(self):
-        print "connection accepted in thread: " + str(int(QtCore.QThread.currentThreadId()))
+        # print "connection accepted in thread: " + str(int(QtCore.QThread.currentThreadId()))
         # pairing done, let connected objects know
         self.pairSuccess.emit()
 
@@ -998,7 +1005,7 @@ class FileIOThread(QtCore.QThread):
         QtCore.QThread.exec_(self)
 
     def readFile(self, path):
-        print "Reading file"
+        # print "Reading file"
         attachedFile = QtCore.QFile(path)
 
         # check that the file opens successfully
