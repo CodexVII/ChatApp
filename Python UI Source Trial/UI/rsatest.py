@@ -2,7 +2,6 @@ from Crypto.PublicKey import RSA
 from Crypto.Hash import SHA256
 from Crypto import Random
 from PyQt4 import QtCore
-import sys
 import base64
 import random
 
@@ -33,16 +32,22 @@ print "Cipher: " + cipher
 block = QtCore.QByteArray()
 out = QtCore.QDataStream(block, QtCore.QIODevice.ReadWrite)
 # write the challenge
-out.writeUInt16(0)
 out.writeString(challenge)
-out.writeUInt16(0)
 out.writeString(str(signature))
+# write block into it
+block2 = QtCore.QByteArray()
+out2 = QtCore.QDataStream(block2, QtCore.QIODevice.ReadWrite)
+out2.writeString("Hey! This was appended.")
+out2.writeString("New message")
+out.writeRawData(block2)
+
 # read the challenge
 out.device().seek(0)
-out.readUInt16()
 data = out.readString()
-out.readUInt16()
+
 embedded_sig = out.readString()
+print out.readString()
+print out.readString()
 
 
 ##################################################
@@ -78,19 +83,17 @@ def heavyDecrypt(ciphertext, private_key):
     # assumes data was encoded in base64
     return base64.b64decode(''.join(result))
 
+
 encrypted = heavyEncrypt("hellob", pub_B)
 print heavyDecrypt(encrypted, key_B)
 
 ##################################################
 # test QByteArray reconstruction
 ##################################################
-# convert QByteArray to String
-# encrypt
 new_block = QtCore.QByteArray(str(block))
 read = QtCore.QDataStream(new_block, QtCore.QIODevice.ReadOnly)
-read.readUInt16()
+
 print "Rebuilt challenge: " + read.readString()
-read.readUInt16()
 print "Rebuilt signature: " + read.readString()
 
 ##################################################
@@ -98,18 +101,12 @@ print "Rebuilt signature: " + read.readString()
 ##################################################
 encrypted_block = heavyEncrypt(block, pub_B)
 decrypted_block = heavyDecrypt(encrypted_block, key_B)
-# print "Orig Block: " + block
-# print "Decrypted Block: " + decrypted_block
-# encrypted_block = pub_B.encrypt(str(block), None)[0]
-# decrypted_block = key_B.decrypt(encrypted_block)
 rebuild = QtCore.QByteArray(decrypted_block)
+# read
 re = QtCore.QDataStream(rebuild, QtCore.QIODevice.ReadOnly)
-#
-re.readUInt16()
 loot = re.readString()
-re.readUInt16()
 lootSign = re.readString()
-print rebuild
+
 print "Challenge from decrypted block: " + loot
 print "Signature from decrypted block: " + lootSign
 
