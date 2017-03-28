@@ -468,7 +468,7 @@ class Logic(QtCore.QObject):
     CONNECTION SIGNALS
     """""""""""""""""""""""""""""""""""""""
     # To comms class
-    pairRequest = QtCore.pyqtSignal(str, str)
+    pairRequest = QtCore.pyqtSignal(str, str, bool)
     tearDownInitiated = QtCore.pyqtSignal()
 
     # To GUI class
@@ -524,6 +524,21 @@ class Logic(QtCore.QObject):
         self.readAttachedFile.connect(self.fileIO.readFile)
         self.fileIOThread.started.connect(self.fileIO.run)
         self.fileIOThread.start()
+
+        # Encryption enabled flag
+        # all encryptions will rely on this flag being true
+
+        # public key(s)
+        # this will contain our public key as well as their public key for RSA
+        random_generator = Random.new().read
+        key = RSA.generate(1024, random_generator)  # generate public & private key
+                                                    # 1024 = key length (bits) of RSA modulus
+        print key
+
+        # session key
+        # holds the session key generated during the session
+
+
 
     ####################################################################
     # on_pair_state_changed
@@ -679,7 +694,7 @@ class Logic(QtCore.QObject):
 
         self.tearDownInitiated.emit()
         # get the connection details from the connection dialog
-        self.pairRequest.emit(address, port)
+        self.pairRequest.emit(address, port, True)
         # self.comm.pair(address, port)
 
     ####################################################################
@@ -964,14 +979,17 @@ class Communication(QtCore.QThread):
         # recursive call to check if there is data still to be read.
         self.read()
 
-    def pair(self, host, port):
+    def pair(self, host, port, encrypted):
         # allows for connection between two chatting programmes
         # possibly the place where AES, SHA and RSA will take place
         # # print "pairing from thread: " + str(int(QtCore.QThread.currentThreadId()))
-        if self.__tcpSocket_request.state() != QtNetwork.QAbstractSocket.ConnectedState:
-            # print "Pairing bruh"
-            self.__tcpSocket_request.connectToHost(host, int(port))
-            # print "Called connectToHost yo"
+        if not encrypted:
+            if self.__tcpSocket_request.state() != QtNetwork.QAbstractSocket.ConnectedState:
+                # print "Pairing bruh"
+                self.__tcpSocket_request.connectToHost(host, int(port))
+                # print "Called connectToHost yo"
+        else:
+            print "Hey I'm encrypted!"
 
     def on_connection_accepted(self):
         # print "connection accepted in thread: " + str(int(QtCore.QThread.currentThreadId()))
@@ -1237,7 +1255,7 @@ class ConnectDialog(QtGui.QDialog, ui_connect.Ui_Dialog):
 ########################################################################################################################
 class Config:
     DownloadDir = QtCore.QDir.homePath() + "\\Desktop\\"
-    Port_t, Message_t, FileData_t, FileName_t = range(4)  # Message types
+    Port_t, Message_t, FileData_t, FileName_t, InitiateEncryption_t = range(5)  # Message types
 
 
 if __name__ == "__main__":
