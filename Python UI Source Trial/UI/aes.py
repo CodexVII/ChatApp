@@ -1,27 +1,39 @@
 import base64
-import hashlib
 from Crypto import Random
 from Crypto.Cipher import AES
+from Crypto.Hash import SHA256
 
 
 class AESCipher(object):
     def __init__(self, key):
-        self.bs = 16;
-        self.key = hashlib.sha256(key.encode()).digest()
+        self.bs = 16
+
+        # represent key in 32 byte form
+        sha = SHA256.new()
+        sha.update(key)
+        self.key = sha.digest()
 
     def encrypt(self, raw):
-        raw = self._pad(raw)
+        raw_padded = self._pad(str(raw))
         iv = Random.new().read(AES.block_size)
 
         cipher = AES.new(self.key, AES.MODE_CFB, iv)
-        return base64.b64encode(iv + cipher.encrypt(raw))
+        encoded = base64.b64encode(iv + cipher.encrypt(raw_padded))
+        print "Raw (Encrypt): " + raw
+        print "Raw_padded (Encrypt)" + raw_padded
+        print "Encoded (Encrypt): " + encoded
+        return encoded
 
     def decrypt(self, enc):
-        enc = base64.b64decode(enc)
+        decoded = base64.b64decode(str(enc))
         # 0 to block size
-        iv = enc[:AES.block_size]
+        iv = decoded[:AES.block_size]
         cipher = AES.new(self.key, AES.MODE_CFB, iv)
-        return self._unpad(cipher.decrypt(enc[AES.block_size:])).decode('utf-8')
+        result = self._unpad(cipher.decrypt(decoded[AES.block_size:]))
+        print "Encoded (Decrypt): " + enc
+        print "Decoded (Decrypt): " + decoded
+        print "Result (Decrypt): " + result
+        return result
 
     def _pad(self, s):
         return s + (self.bs - len(s) % self.bs) * chr(self.bs - len(s) % self.bs)
@@ -33,7 +45,7 @@ class AESCipher(object):
 
 if __name__ == "__main__":
     # create key
-    ian = AESCipher(key="asd")
+    ian = AESCipher(key="1535022712713798117")
 
     # create data (str)
     data = "Hello"
