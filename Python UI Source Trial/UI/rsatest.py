@@ -39,15 +39,39 @@ block2 = QtCore.QByteArray()
 out2 = QtCore.QDataStream(block2, QtCore.QIODevice.ReadWrite)
 out2.writeString("Hey! This was appended.")
 out2.writeString("New message")
+old = out2.device().pos()
+out2.writeUInt16(0)
+out2.writeRawData("I am a file")
+new = out2.device().pos()
+size = new - old-2
+out2.device().seek(old)
+out2.writeUInt16(size)
+out2.device().seek(new)
+
+old = out2.device().pos()
+out2.writeUInt16(0)
+out2.writeRawData("I am a file2")
+new = out2.device().pos()
+size = new - old
+out2.device().seek(old)
+out2.writeUInt16(size)
+out2.device().seek(new)
+# out2.writeString("Don't print me")    # can't add strings after raw data
 out.writeRawData(block2)
+print "block: " + block2
 
 # read the challenge
 out.device().seek(0)
-data = out.readString()
+data = out.readString() # challenge
+embedded_sig = out.readString() # signature
+print out.readString()  # msg1
+print out.readString()  # msg2
+toread = out.readUInt16()
+print out.readRawData(toread) # rawData
+toread = out.readUInt16()
+print out.readRawData(toread) # rawData
+# print out.readString()
 
-embedded_sig = out.readString()
-print out.readString()
-print out.readString()
 
 
 ##################################################
