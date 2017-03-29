@@ -14,6 +14,7 @@ import ctypes
 import hashlib
 import aes
 import socket
+import security
 
 
 ########################################################################################################################
@@ -272,7 +273,7 @@ class ChatWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
     # Stores the message as well for future use, if needed.
     ####################################################################
     def sendMessage(self):
-        msg = self.lineEdit.text()
+        msg = str(self.lineEdit.text())
         if msg:
             self.displayMessage(msg, sender=True)
             self.lineEdit.clear()
@@ -449,7 +450,7 @@ class ChatWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
 #   def deliverMessage(msg)
 #   def deliverFile(file)
 #   def tearDownConnection()
-#   def beginPairing(address, port
+#   def beginPairing(address, port)
 #   def attachFile(file)
 ########################################################################################################################
 
@@ -458,7 +459,7 @@ class Logic(QtCore.QObject):
     MESSAGE SIGNALS
     """""""""""""""""""""""""""""""""""""""
     # To comms class
-    outgoingMessageReady = QtCore.pyqtSignal(int, QtCore.QString)
+    outgoingMessageReady = QtCore.pyqtSignal(int, str)
 
     # to GUI class
     messageReceived = QtCore.pyqtSignal(str)
@@ -468,7 +469,7 @@ class Logic(QtCore.QObject):
     CONNECTION SIGNALS
     """""""""""""""""""""""""""""""""""""""
     # To comms class
-    pairRequest = QtCore.pyqtSignal(str, str, bool)
+    pairRequest = QtCore.pyqtSignal(str, str)
     tearDownInitiated = QtCore.pyqtSignal()
 
     # To GUI class
@@ -500,7 +501,7 @@ class Logic(QtCore.QObject):
         # connect comm signal/slots
         self.comm.messageReceived.connect(self.forwardReceivedMessage)
         self.comm.pairStateChanged.connect(self.on_pair_state_changed)
-#        self.comm.listenError.connect(lambda: self.displayListenStatus(self.comm.__listenPortLive))
+        #        self.comm.listenError.connect(lambda: self.displayListenStatus(self.comm.__listenPortLive))
         self.comm.fileReceived.connect(self.on_file_received)
         self.comm.serverReady.connect(self.on_server_ready)
 
@@ -524,21 +525,6 @@ class Logic(QtCore.QObject):
         self.readAttachedFile.connect(self.fileIO.readFile)
         self.fileIOThread.started.connect(self.fileIO.run)
         self.fileIOThread.start()
-
-        # Encryption enabled flag
-        # all encryptions will rely on this flag being true
-
-        # public key(s)
-        # this will contain our public key as well as their public key for RSA
-        random_generator = Random.new().read
-        key = RSA.generate(1024, random_generator)  # generate public & private key
-                                                    # 1024 = key length (bits) of RSA modulus
-        print key
-
-        # session key
-        # holds the session key generated during the session
-
-
 
     ####################################################################
     # on_pair_state_changed
@@ -694,7 +680,8 @@ class Logic(QtCore.QObject):
 
         self.tearDownInitiated.emit()
         # get the connection details from the connection dialog
-        self.pairRequest.emit(address, port, True)
+        self.comm.initiator = True
+        self.pairRequest.emit(address, port)
         # self.comm.pair(address, port)
 
     ####################################################################
@@ -818,14 +805,25 @@ class Communication(QtCore.QThread):
         self.__rawFile = None
         self.__listenPortLive = False
 
-        # Protocol variables
-        self.stage = 0
-
         # One TcpSocket is for the server portion of the program (_receive)
         # the other is for the client portion of the program (_request)
         self.__tcpSocket_receive = QtNetwork.QTcpSocket(self)
         self.__tcpSocket_request = QtNetwork.QTcpSocket(self)
         self.__tcpServer = QtNetwork.QTcpServer(self)
+
+        # encryption variables
+        self.__stage = 0
+        self.__encrypted_f = True
+        self.__key = RSA.generate(1024)
+        print "Generated Key"
+        print self.__key.publickey().exportKey()
+        self.__partnerKey = ""
+        self.__pass = str(randint(0, sys.maxint))
+        self.__partnerPass = ""
+        self.__sessionKey = ""
+        self.initiator = False
+        self.__secretReady = False
+        self.__aes = aes.AESCipher(key="")
 
     ####################################################################
     # run
@@ -839,6 +837,7 @@ class Communication(QtCore.QThread):
         # connecting SIGNALS and SLOTS
         self.__tcpSocket_request.connected.connect(self.on_connection_accepted)
         self.__tcpSocket_request.error.connect(self.on_connection_failed)
+        self.__tcpSocket_request.disconnected.connect(self.tearDown)
         self.__tcpSocket_request.stateChanged.connect(self.on_connectionState_changed)
         self.__tcpServer.newConnection.connect(self.on_newConnection)
 
@@ -872,7 +871,8 @@ class Communication(QtCore.QThread):
     # move to its own function so that this won't be running on the main thread
     def startTcpServer(self):
         # begin listening at a random port
-        if not self.__tcpServer.listen(QtNetwork.QHostAddress(socket.gethostbyname(socket.gethostname())), randint(5000, 65535)):
+        if not self.__tcpServer.listen(QtNetwork.QHostAddress(socket.gethostbyname(socket.gethostname())),
+                                       randint(5000, 65535)):
             # server couldn't start
             self.__listenPortLive = False
             self.listenError.emit()
@@ -900,88 +900,63 @@ class Communication(QtCore.QThread):
         out.writeUInt32(0)  # placeholder for payload size
         out.writeUInt16(payload_t)  # payload_t is int, constructor only takes str
 
+        if self.__secretReady:
+            print "Encrypting with AES"
+            payload = self.__aes.encrypt(payload)
+
         # # print "past header"
         # determine which procedure to use when writing to the datastream
         if payload_t == Config.Port_t or payload_t == Config.Message_t or payload_t == Config.FileName_t:
             # payload is a string
+            if payload_t == Config.Port_t:
+                print "Sending server's listening port: " + payload
             out.writeString(payload)
         elif payload_t == Config.FileData_t:
             # payload is a byte array
             out.writeRawData(payload)
+        elif payload_t == Config.Security_t:
+            # payload is a stream of bytes dealing with security
+            out.writeBytes(payload)
 
         # # print "data on datastream"
         # go back to the start and write the size of the payload
         out.device().seek(0)
         out.writeUInt32(block.size() - self.HEADER_SIZE)
 
+        # encrypt block here if AES is ready
+
         self.__tcpSocket_request.write(block)
 
-    def encryptedRead(self):
-        # print "Reading from thread: " + str(int(QtCore.QThread.currentThreadId()))
-        # Constructs a data stream that uses the I/O device.
-        instr = QtCore.QDataStream(self.__tcpSocket_receive)
-        instr.setVersion(QtCore.QDataStream.Qt_4_0)
-
-        # if we haven't read anything yet from the server and size is not set
-        if self.__blockSize == 0:
-            # the first two bytes are reserved for the size of the payload.
-            # must check it is at least that size to take in a valid payload size.
-            if self.__tcpSocket_receive.bytesAvailable() < self.HEADER_SIZE:
-                # print "smaller than header"
-                return
-
-            # read the size of the byte array payload from server.
-            # Once the first flag is consumed, read the message type on the payload
-            # print "getting new payload info"
-
-            self.__blockSize = instr.readUInt32()
-            self.__msgType = instr.readUInt16()
-            # print "Msg type: " + str(self.__msgType)
-        # the data is incomplete so we return until the data is good
-        if self.__tcpSocket_receive.bytesAvailable() < self.__blockSize:
-            # print "message incomplete"
-            return
-
-        # sort out what to do with the received data
-        # go back to the start of the payload
-        if self.__msgType == Config.Port_t:
-            # message contains port information
-            # save the port to set the request socket to point at that port
-            # sometimes required.. ie. over local network this seemed to become an issue.. fine local
-            self.__pairPort = instr.readString()
-            self.pair(self.__tcpSocket_receive.peerAddress(), int(self.__pairPort))
-
-        elif self.__msgType == Config.Message_t:
-            # normal message
-            # read in the message and inform connected objects about the contents
-            msg = instr.readString()
-
-            self.messageReceived.emit(msg)
-        elif self.__msgType == Config.FileData_t:
-            self.__rawFile = instr.readRawData(self.__blockSize)
-
-            # downloads go to the user's desktop folder. will emit a signal when finished
-            file = QtCore.QFile(Config.DownloadDir + self.__fileName)
-            file.open(QtCore.QIODevice.WriteOnly)
-            file.write(self.__rawFile)
-            file.close()
-
-            fileSize = QtCore.QFileInfo(file).size() / 1000
-            fileHash = hashlib.sha256(self.__rawFile).hexdigest()
-            self.fileReceived.emit(self.__fileName, fileSize, fileHash)
-        elif self.__msgType == Config.FileName_t:
-            # store the file name. used when saving the received file that should come straight after this
-            self.__fileName = instr.readString()
-            # print "received file name: " + str(self.__fileName)
-
-        # reset the block size for next msg to be read
-        self.__blockSize = 0
-        self.__msgType = -1
-
-        # recursive call to check if there is data still to be read.
-        self.read()
-
     # returns QDataStream object for processing
+    def blockBuilder(self, *args):
+        block = QtCore.QByteArray()
+        stream = QtCore.QDataStream(block, QtCore.QIODevice.WriteOnly)
+
+        for arg in args:
+            stream.writeString(arg)
+
+        return block
+
+    # Goal: set a session key
+    # if B, I am B
+    #   stage 0
+    #       send Kb
+    #       stage++
+    #   stage 1
+    #       gen Kab
+    #       send PassB (challenge)
+    #       stage++
+    #   stage2
+    #       verify response
+    #       stage++
+    # if A, I am A
+    #   stage 0
+    #       send PassA
+    #       stage++
+    #   stage 1
+    #       stage++
+    #       send PassB (response)
+    #
     def read(self):
         # print "Reading from thread: " + str(int(QtCore.QThread.currentThreadId()))
         # Constructs a data stream that uses the I/O device.
@@ -1015,16 +990,23 @@ class Communication(QtCore.QThread):
             # save the port to set the request socket to point at that port
             # sometimes required.. ie. over local network this seemed to become an issue.. fine local
             self.__pairPort = instr.readString()
+            print "Port read as: " + self.__pairPort
             self.pair(self.__tcpSocket_receive.peerAddress(), int(self.__pairPort))
 
         elif self.__msgType == Config.Message_t:
             # normal message
             # read in the message and inform connected objects about the contents
-            msg = instr.readString()
-
+            if self.__secretReady:
+                encrypted_msg = instr.readString()
+                msg = self.__aes.decrypt(encrypted_msg)
+            else:
+                msg = instr.readString()
             self.messageReceived.emit(msg)
         elif self.__msgType == Config.FileData_t:
-            self.__rawFile = instr.readRawData(self.__blockSize)
+            if self.__secretReady:
+                self.__rawFile = self.__aes.decrypt(instr.readRawData(self.__blockSize))
+            else:
+                self.__rawFile = instr.readRawData(self.__blockSize)
 
             # downloads go to the user's desktop folder. will emit a signal when finished
             file = QtCore.QFile(Config.DownloadDir + self.__fileName)
@@ -1037,8 +1019,86 @@ class Communication(QtCore.QThread):
             self.fileReceived.emit(self.__fileName, fileSize, fileHash)
         elif self.__msgType == Config.FileName_t:
             # store the file name. used when saving the received file that should come straight after this
-            self.__fileName = instr.readString()
-            # print "received file name: " + str(self.__fileName)
+            if self.__secretReady:
+                self.__fileName = self.__aes.decrypt(instr.readString())
+            else:
+                self.__fileName = instr.readString()
+                # print "received file name: " + str(self.__fileName)
+        elif self.__msgType == Config.Security_t:
+            print "security msg"
+            recreate = QtCore.QByteArray(instr.readBytes())
+            in_rec = QtCore.QDataStream(recreate, QtCore.QIODevice.ReadOnly)
+            sender = in_rec.readString()
+            receiver = in_rec.readString()
+
+            # Go through all of the stages depending on whether the client is the initiator or not
+            if not self.initiator:
+                # this is the receiver
+                # print "not initiator"
+                if self.__stage == 0:
+                    "received Ka.. sending kb"
+                    self.__partnerKey = RSA.importKey(in_rec.readString())
+                    # send public key
+                    out = self.blockBuilder("B", "A", self.__key.publickey().exportKey())
+                    self.write(Config.Security_t, out)
+                    # increment stage
+                    self.__stage += 1
+                elif self.__stage == 1:
+                    "Received PassA... generating session key.. sending Pass B"
+                    self.__partnerPass = in_rec.readString()
+                    # generate session key
+                    self.__sessionKey = self.__partnerPass + self.__pass
+                    signature = in_rec.readString()
+                    security.verify(self.__partnerPass, signature, self.__partnerKey.exportKey())
+                    # send pass B
+                    out = self.blockBuilder("B", "A", self.__pass, self.__partnerPass)
+                    self.write(Config.Security_t, out)
+                    # increment stage
+                    self.__stage += 1
+                elif self.__stage == 2:
+                    # Received PassB... checking if correct
+                    nonce = in_rec.readString()
+                    if nonce in self.__pass:
+                        print "We have a match"
+                    else:
+                        print "Nonce: %s did not match %s" % nonce, self.__pass
+                    # setup AES cipher
+                    self.__secretReady = True
+                    print "Session key: " + self.__sessionKey
+                    self.__aes = aes.AESCipher(key=self.__sessionKey)
+                    # increment stage
+                    self.__stage += 1
+            else:
+                # print "initiator"
+                if self.__stage == 0:
+                    "Received Kb... Sending PassA"
+                    self.__partnerKey = RSA.importKey(in_rec.readString())
+                    # sign pass
+                    signature = security.sign(self.__pass, self.__key.exportKey())
+                    # send pass and signature
+                    out = self.blockBuilder("A", "B", self.__pass, str(signature))
+                    self.write(Config.Security_t, out)
+                    # increment stage
+                    self.__stage += 1
+                elif self.__stage == 1:
+                    "Received PassB... generating session key... sending pass b"
+                    self.__partnerPass = in_rec.readString()
+                    nonce = in_rec.readString()  # read back response should be same
+                    if nonce in self.__pass:
+                        print "We have a match"
+                    else:
+                        print "Nonce: %s did not match %s" % nonce, self.__pass
+                    # generate session key
+                    self.__sessionKey = self.__pass + self.__partnerPass
+                    out = self.blockBuilder("A", "B", self.__partnerPass)
+                    # send challenge response
+                    self.write(Config.Security_t, out)
+                    # setup AES cipher
+                    print "Session key: " + self.__sessionKey
+                    self.__secretReady = True
+                    self.__aes = aes.AESCipher(key=self.__sessionKey)
+                    # increment stage
+                    self.__stage += 1
 
         # reset the block size for next msg to be read
         self.__blockSize = 0
@@ -1047,30 +1107,48 @@ class Communication(QtCore.QThread):
         # recursive call to check if there is data still to be read.
         self.read()
 
-    def pair(self, host, port, encrypted):
+    def pair(self, host, port):
         # allows for connection between two chatting programmes
         # possibly the place where AES, SHA and RSA will take place
         # # print "pairing from thread: " + str(int(QtCore.QThread.currentThreadId()))
-        if not encrypted:
-            if self.__tcpSocket_request.state() != QtNetwork.QAbstractSocket.ConnectedState:
-                # print "Pairing bruh"
-                self.__tcpSocket_request.connectToHost(host, int(port))
-                # print "Called connectToHost yo"
-        else:
-            print "Hey I'm encrypted!"
+        if self.__tcpSocket_request.state() != QtNetwork.QAbstractSocket.ConnectedState:
+            # print "Pairing bruh"
+            self.__tcpSocket_request.connectToHost(host, int(port))
+            # print "Called connectToHost yo"
 
+    # request socket has been connected to the host
+    # assume we are A and act accordingly
     def on_connection_accepted(self):
         # print "connection accepted in thread: " + str(int(QtCore.QThread.currentThreadId()))
         # pairing done, let connected objects know
         self.pairSuccess.emit()
 
-        # attempt to connect to the listening port of the other user
+        # give the connected host the port address of the listening server to allow them to connect back
         self.write(Config.Port_t, str(self.__tcpServer.serverPort()))
+
+        print "Starting security"
+        if self.initiator:
+            block = QtCore.QByteArray()
+            out = QtCore.QDataStream(block, QtCore.QIODevice.WriteOnly)
+            out.writeString("A")
+            out.writeString("B")
+            out.writeString(self.__key.publickey().exportKey())
+            self.write(Config.Security_t, block)
 
     def tearDown(self):
         # disconnect both request and receive sockets
         self.__tcpSocket_request.abort()
         self.__tcpSocket_receive.abort()
+
+        self.__stage = 0
+        self.__encrypted_f = True
+        self.__key = RSA.generate(1024)
+        self.__partnerKey = ""
+        self.__pass = str(randint(0, sys.maxint))
+        self.__partnerPass = ""
+        self.__sessionKey = ""
+        self.__secretReady = False
+        self.__aes = aes.AESCipher("")
 
 
 ########################################################################################################################
@@ -1323,7 +1401,7 @@ class ConnectDialog(QtGui.QDialog, ui_connect.Ui_Dialog):
 ########################################################################################################################
 class Config:
     DownloadDir = QtCore.QDir.homePath() + "\\Desktop\\"
-    Port_t, Message_t, FileData_t, FileName_t, InitiateEncryption_t = range(5)  # Message types
+    Port_t, Message_t, FileData_t, FileName_t, Security_t = range(5)  # Message types
 
 
 if __name__ == "__main__":
