@@ -35,8 +35,8 @@
           <file leaf-file-name="UserA.py" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/UserA.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="397">
-                  <caret line="838" column="52" lean-forward="true" selection-start-line="838" selection-start-column="52" selection-end-line="838" selection-end-column="52" />
+                <state relative-caret-position="-157">
+                  <caret line="1138" column="31" lean-forward="true" selection-start-line="1138" selection-start-column="31" selection-end-line="1138" selection-end-column="31" />
                   <folding>
                     <element signature="e#24#70#0" expanded="true" />
                   </folding>
@@ -121,8 +121,6 @@
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
-      <find>OUTGOINGmESSAGE</find>
-      <find>rsa</find>
       <find>lootSign</find>
       <find>Uint</find>
       <find>on_connectInfo_ready</find>
@@ -148,9 +146,11 @@
       <find>outgoingMessageReady</find>
       <find>QString</find>
       <find>outgoingMessage</find>
-      <find>connect</find>
       <find>pairPort</find>
       <find>print</find>
+      <find>connect</find>
+      <find>65355</find>
+      <find>65</find>
     </findStrings>
     <replaceStrings>
       <replace>//print</replace>
@@ -939,8 +939,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/UserA.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="397">
-          <caret line="838" column="52" lean-forward="true" selection-start-line="838" selection-start-column="52" selection-end-line="838" selection-end-column="52" />
+        <state relative-caret-position="-157">
+          <caret line="1138" column="31" lean-forward="true" selection-start-line="1138" selection-start-column="31" selection-end-line="1138" selection-end-column="31" />
           <folding>
             <element signature="e#24#70#0" expanded="true" />
           </folding>

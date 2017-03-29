@@ -106,7 +106,8 @@ class ChatWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         self.actionDisconnect.triggered.connect(self.on_disconnect_clicked)
         self.actionDemo.triggered.connect(self.on_demo_clicked)
         self.connectDialog.inputReady.connect(self.on_connectInfo_ready)
-
+        self.radioButton.clicked.connect(self.on_encrypt_clicked)
+        self.radioButton_2.clicked.connect(self.on_decrypt_clicked)
         # user hasn't placed any input yet so disable the button
         self.pushButton.setDisabled(True)
 
@@ -125,13 +126,6 @@ class ChatWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
                    font-size: 14px;
                    }
                """)
-
-        # get local host connection
-
-
-        # print self.textBrowser.fontInfo().family() + str(self.textBrowser.fontInfo().pointSize())
-
-        # print "Main GUI initialised with ID: " + str(int(QtCore.QThread.currentThreadId()))
 
     ####################################################################
     # on_serverPort_ready:
@@ -165,7 +159,18 @@ class ChatWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
     #   port    -   The target host's listening port    (str)
     ####################################################################
     def on_connectInfo_ready(self, address, port):
-        self.logic.beginPairing(address, port)
+        if self.radioButton.isChecked():
+            # encrypted
+            self.logic.beginPairing(address, port, encrypted=True)
+        elif self.radioButton_2.isChecked():
+            # decrypted
+            self.logic.beginPairing(address, port, encrypted=False)
+
+    def on_encrypt_clicked(self):
+        self.logic.encryptConnection()
+
+    def on_decrypt_clicked(self):
+        self.logic.decryptConnection()
 
     ####################################################################
     # on_about_clicked
@@ -674,13 +679,14 @@ class Logic(QtCore.QObject):
     #   port        -   port of the receiving port  (int)
     #
     ####################################################################
-    def beginPairing(self, address, port):
+    def beginPairing(self, address, port, encrypted=False):
         # print "pairing from logic"
         # ensure that each connection/reconnect is a fresh one
 
         self.tearDownInitiated.emit()
         # get the connection details from the connection dialog
         self.comm.initiator = True
+        self.comm.encrypted_f = encrypted
         self.pairRequest.emit(address, port)
         # self.comm.pair(address, port)
 
@@ -729,6 +735,12 @@ class Logic(QtCore.QObject):
     ####################################################################
     def tearDownConnection(self):
         self.tearDownInitiated.emit()
+
+    def decryptConnection(self):
+        self.comm.encrypted_f = False
+
+    def encryptConnection(self):
+        self.comm.encrypted_f = True
 
 
 ########################################################################################################################
@@ -813,7 +825,7 @@ class Communication(QtCore.QThread):
 
         # encryption variables
         self.__stage = 0
-        self.__encrypted_f = True
+        self.encrypted_f = False
         self.__key = RSA.generate(1024)
         print "Generated Key"
         print self.__key.publickey().exportKey()
@@ -1127,7 +1139,8 @@ class Communication(QtCore.QThread):
         self.write(Config.Port_t, str(self.__tcpServer.serverPort()))
 
         print "Starting security"
-        if self.initiator:
+        print "Initiator: %r, Encrypted: %r" % (self.initiator, self.encrypted_f)
+        if self.initiator and self.encrypted_f:
             block = QtCore.QByteArray()
             out = QtCore.QDataStream(block, QtCore.QIODevice.WriteOnly)
             out.writeString("A")
@@ -1141,7 +1154,6 @@ class Communication(QtCore.QThread):
         self.__tcpSocket_receive.abort()
 
         self.__stage = 0
-        self.__encrypted_f = True
         self.__key = RSA.generate(1024)
         self.__partnerKey = ""
         self.__pass = str(randint(0, sys.maxint))
@@ -1154,7 +1166,7 @@ class Communication(QtCore.QThread):
 ########################################################################################################################
 # FileIOThread
 #
-# //TO DO
+# //TO DOX
 #
 ########################################################################################################################
 class FileIOThread(QtCore.QThread):
