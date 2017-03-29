@@ -25,15 +25,16 @@ sha.update(challenge)
 signature = key_A.sign(sha.hexdigest(), None)[0]
 print "Signature: " + str(signature)
 
-# encrypt the signature and challenge
-cipher = challenge + str(signature)
-print "Cipher: " + cipher
 # write to qByteArray
 block = QtCore.QByteArray()
 out = QtCore.QDataStream(block, QtCore.QIODevice.ReadWrite)
 # write the challenge
 out.writeString(challenge)
 out.writeString(str(signature))
+
+##################################################
+# Test appending block into already existing block
+##################################################
 # write block into it
 block2 = QtCore.QByteArray()
 out2 = QtCore.QDataStream(block2, QtCore.QIODevice.ReadWrite)
@@ -43,11 +44,10 @@ old = out2.device().pos()
 out2.writeUInt16(0)
 out2.writeRawData("I am a file")
 new = out2.device().pos()
-size = new - old-2
+size = new - old - 2
 out2.device().seek(old)
 out2.writeUInt16(size)
 out2.device().seek(new)
-
 old = out2.device().pos()
 out2.writeUInt16(0)
 out2.writeRawData("I am a file2")
@@ -62,14 +62,17 @@ print "block: " + block2
 
 # read the challenge
 out.device().seek(0)
-data = out.readString() # challenge
-embedded_sig = out.readString() # signature
+data = out.readString()  # challenge
+embedded_sig = out.readString()  # signature
+# extra reads from appended block
 print out.readString()  # msg1
 print out.readString()  # msg2
 toread = out.readUInt16()
-print out.readRawData(toread) # rawData
+print out.readRawData(toread)  # rawData
 toread = out.readUInt16()
-print out.readRawData(toread) # rawData
+print out.readRawData(toread)  # rawData
+
+
 # print out.readString()
 
 
@@ -111,6 +114,7 @@ def heavyDecrypt(ciphertext, private_key):
 encrypted = heavyEncrypt("hellob", pub_B)
 print heavyDecrypt(encrypted, key_B)
 
+
 ##################################################
 # test QByteArray reconstruction
 ##################################################
@@ -123,7 +127,9 @@ print "Rebuilt signature: " + read.readString()
 ##################################################
 # test encrypting/decrypting block
 ##################################################
+# encrypt the signature and challenge
 encrypted_block = heavyEncrypt(block, pub_B)
+# decrypt
 decrypted_block = heavyDecrypt(encrypted_block, key_B)
 rebuild = QtCore.QByteArray(decrypted_block)
 # read
@@ -135,20 +141,11 @@ print "Challenge from decrypted block: " + loot
 print "Signature from decrypted block: " + lootSign
 
 ##################################################
-# encrypting decrypting
+# verify message
 ##################################################
-print "Challenge: " + str(data)
-print "Signature: " + str(embedded_sig)
-print "Signature length: " + str(len(str(signature)))
-encrypted = pub_B.encrypt(signature, None)[0]
-print "Encrypted signature: " + str(encrypted)
-
-# decrypt in chunks
-decrypted = key_B.decrypt(encrypted)
-print "Decrypted signature: " + str(decrypted)
-
-# verify
 sha2 = SHA256.new()
-sha2.update(challenge)
+sha2.update(loot)
 print sha2.hexdigest()
 print pub_A.verify(sha2.hexdigest(), (long(lootSign),))
+
+

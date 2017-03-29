@@ -818,6 +818,9 @@ class Communication(QtCore.QThread):
         self.__rawFile = None
         self.__listenPortLive = False
 
+        # Protocol variables
+        self.stage = 0
+
         # One TcpSocket is for the server portion of the program (_receive)
         # the other is for the client portion of the program (_request)
         self.__tcpSocket_receive = QtNetwork.QTcpSocket(self)
@@ -912,6 +915,71 @@ class Communication(QtCore.QThread):
         out.writeUInt32(block.size() - self.HEADER_SIZE)
 
         self.__tcpSocket_request.write(block)
+
+    def encryptedRead(self):
+        # print "Reading from thread: " + str(int(QtCore.QThread.currentThreadId()))
+        # Constructs a data stream that uses the I/O device.
+        instr = QtCore.QDataStream(self.__tcpSocket_receive)
+        instr.setVersion(QtCore.QDataStream.Qt_4_0)
+
+        # if we haven't read anything yet from the server and size is not set
+        if self.__blockSize == 0:
+            # the first two bytes are reserved for the size of the payload.
+            # must check it is at least that size to take in a valid payload size.
+            if self.__tcpSocket_receive.bytesAvailable() < self.HEADER_SIZE:
+                # print "smaller than header"
+                return
+
+            # read the size of the byte array payload from server.
+            # Once the first flag is consumed, read the message type on the payload
+            # print "getting new payload info"
+
+            self.__blockSize = instr.readUInt32()
+            self.__msgType = instr.readUInt16()
+            # print "Msg type: " + str(self.__msgType)
+        # the data is incomplete so we return until the data is good
+        if self.__tcpSocket_receive.bytesAvailable() < self.__blockSize:
+            # print "message incomplete"
+            return
+
+        # sort out what to do with the received data
+        # go back to the start of the payload
+        if self.__msgType == Config.Port_t:
+            # message contains port information
+            # save the port to set the request socket to point at that port
+            # sometimes required.. ie. over local network this seemed to become an issue.. fine local
+            self.__pairPort = instr.readString()
+            self.pair(self.__tcpSocket_receive.peerAddress(), int(self.__pairPort))
+
+        elif self.__msgType == Config.Message_t:
+            # normal message
+            # read in the message and inform connected objects about the contents
+            msg = instr.readString()
+
+            self.messageReceived.emit(msg)
+        elif self.__msgType == Config.FileData_t:
+            self.__rawFile = instr.readRawData(self.__blockSize)
+
+            # downloads go to the user's desktop folder. will emit a signal when finished
+            file = QtCore.QFile(Config.DownloadDir + self.__fileName)
+            file.open(QtCore.QIODevice.WriteOnly)
+            file.write(self.__rawFile)
+            file.close()
+
+            fileSize = QtCore.QFileInfo(file).size() / 1000
+            fileHash = hashlib.sha256(self.__rawFile).hexdigest()
+            self.fileReceived.emit(self.__fileName, fileSize, fileHash)
+        elif self.__msgType == Config.FileName_t:
+            # store the file name. used when saving the received file that should come straight after this
+            self.__fileName = instr.readString()
+            # print "received file name: " + str(self.__fileName)
+
+        # reset the block size for next msg to be read
+        self.__blockSize = 0
+        self.__msgType = -1
+
+        # recursive call to check if there is data still to be read.
+        self.read()
 
     # returns QDataStream object for processing
     def read(self):
