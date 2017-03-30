@@ -150,10 +150,10 @@ class ChatWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
     def on_encryptedUpdate(self, encrypted):
         if encrypted and not self.radioButton.isChecked():
             self.radioButton.click()
-            self.displayMessage("Connection encrypted.")
+            # self.displayMessage("Connection encrypted.")
         elif not encrypted and not self.radioButton_2.isChecked():
             self.radioButton_2.click()
-            self.displayMessage("Connection decrypted.")
+            # self.displayMessage("Connection decrypted.")
 
     def on_quickConnect_clicked(self):
         if self.radioButton.isChecked():
@@ -1015,9 +1015,25 @@ class Communication(QtCore.QThread):
         stream = QtCore.QDataStream(block, QtCore.QIODevice.WriteOnly)
 
         for arg in args:
-            stream.writeString(arg)
+            if str(type(arg)) in "<type 'str'>":
+                stream.writeString(arg)
+            elif str(type(arg)) in "<class 'PyQt4.QtCore.QByteArray'>":
+                stream.writeBytes(arg)
+            else:
+                print "Argument not valid"
 
         return block
+
+    def streamReader(self, stream, items):
+        result = []
+        for item in items:
+            if str(item) in "<type 'str'>":
+                result.append(stream.readString())
+            elif str(item) in "<class 'PyQt4.QtCore.QByteArray'>":
+                result.append(stream.readBytes())
+            else:
+                print "Item not valid"
+        return tuple(result)
 
     # Goal: set a session key
     # if B, I am B
@@ -1044,12 +1060,6 @@ class Communication(QtCore.QThread):
         # Constructs a data stream that uses the I/O device.
         instr = QtCore.QDataStream(self.__tcpSocket_receive)
         instr.setVersion(QtCore.QDataStream.Qt_4_0)
-
-        # updates the GUI on the status of encryption for toggle button
-        # if not self.__secretReady:
-        #     self.encrypted.emit(False)
-        # else:
-        #     self.encrypted.emit(True)
 
         # if we haven't read anything yet from the server and size is not set
         if self.__blockSize == 0:
@@ -1120,12 +1130,13 @@ class Communication(QtCore.QThread):
                 # print "received file name: " + str(self.__fileName)
         elif self.__msgType == Config.Security_t:
             print "security msg"
-            recreate = QtCore.QByteArray(instr.readBytes())
-            in_rec = QtCore.QDataStream(recreate, QtCore.QIODevice.ReadOnly)
-            sender = in_rec.readString()
-            receiver = in_rec.readString()
+            self.encrypted_f = True
+            self.encrypted.emit(True)
 
-            # print "Sender: %s, Receiver: %s" % (sender, receiver)
+            block = QtCore.QByteArray(instr.readBytes())
+            in_rec = QtCore.QDataStream(block, QtCore.QIODevice.ReadOnly)
+            sender, receiver = self.streamReader(in_rec, (str, str))
+            print "Sender: %s, Receiver: %s" % (sender, receiver)
             # if not self.initiator:
             #     self.identity = "B"
             # else:
@@ -1145,10 +1156,11 @@ class Communication(QtCore.QThread):
                     self.__stage += 1
                 elif self.__stage == 1:
                     # print "Received PassA... generating session key.. sending Pass B"
-                    self.__partnerPass = in_rec.readString()
+                    self.__partnerPass, signature = self.streamReader(in_rec, (str, str))
                     # generate session key
                     self.__sessionKey = self.__partnerPass + self.__pass
-                    signature = in_rec.readString()
+                    # encrypt message before hand for AES
+
                     security.verify(self.__partnerPass, signature, self.__partnerKey.exportKey())
                     # send pass B
                     out = self.blockBuilder("B", "A", self.__pass, self.__partnerPass)
@@ -1163,43 +1175,52 @@ class Communication(QtCore.QThread):
                     else:
                         print "Nonce: %s did not match %s" % (nonce, self.__pass)
                     # setup AES cipher
-                    self.__secretReady = True
                     print "Session key: " + self.__sessionKey
+
                     self.__aes = aes.AESCipher(key=self.__sessionKey)
+                    self.__secretReady = True
                     # increment stage
                     self.__stage += 1
+
             elif "A" in receiver:
                 # print "initiator"
                 if self.__stage == 0:
-                    # print "Received Kb... Sending PassA"
+                    print "Received Kb... Sending PassA"
                     key = in_rec.readString()
                     self.__partnerKey = RSA.importKey(key)
                     # sign pass
                     signature = security.sign(self.__pass, self.__key.exportKey())
+
                     # send pass and signature
                     out = self.blockBuilder("A", "B", self.__pass, str(signature))
                     self.write(Config.Security_t, out)
                     # increment stage
                     self.__stage += 1
                 elif self.__stage == 1:
-                    # print "Received PassB... generating session key... sending pass b"
-                    self.__partnerPass = in_rec.readString()
-                    nonce = in_rec.readString()  # read back response should be same
+                    print "Received PassB... generating session key... sending pass b"
+                    self.__partnerPass, nonce = self.streamReader(in_rec, (str, str))
+
+                    # decrypt AES before hand
                     if nonce in self.__pass:
                         print "We have a match"
                     else:
                         print "Nonce: %s did not match %s" % (nonce, self.__pass)
+
                     # generate session key
                     self.__sessionKey = self.__pass + self.__partnerPass
                     out = self.blockBuilder("A", "B", self.__partnerPass)
                     # send challenge response
                     self.write(Config.Security_t, out)
                     # setup AES cipher
-                    # print "Session key: " + self.__sessionKey
-                    self.__secretReady = True
+                    print "Session key: " + self.__sessionKey
+
                     self.__aes = aes.AESCipher(key=self.__sessionKey)
+
                     # increment stage
                     self.__stage += 1
+                    print self.__sessionKey
+                    self.__secretReady = True
+                    # self.encrypted.emit(True)
 
         # reset the block size for next msg to be read
         self.__blockSize = 0
@@ -1233,8 +1254,10 @@ class Communication(QtCore.QThread):
         print "Initiator: %r, Encrypted: %r" % (self.initiator, self.encrypted_f)
 
         if self.encrypted_f:
+            print "I am encrypted"
             self.encrypted.emit(True)
         else:
+            print "I am decrypted"
             self.encrypted.emit(False)
 
         if self.initiator and self.encrypted_f:
