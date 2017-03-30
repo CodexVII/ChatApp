@@ -35,8 +35,8 @@
           <file leaf-file-name="UserA.py" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/UserA.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="-157">
-                  <caret line="1138" column="31" lean-forward="true" selection-start-line="1138" selection-start-column="31" selection-end-line="1138" selection-end-column="31" />
+                <state relative-caret-position="500">
+                  <caret line="1463" column="1" lean-forward="true" selection-start-line="1463" selection-start-column="1" selection-end-line="1463" selection-end-column="1" />
                   <folding>
                     <element signature="e#24#70#0" expanded="true" />
                   </folding>
@@ -87,8 +87,8 @@
           <file leaf-file-name="aes.py" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/aes.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="232">
-                  <caret line="27" column="0" lean-forward="false" selection-start-line="27" selection-start-column="0" selection-end-line="27" selection-end-column="0" />
+                <state relative-caret-position="504">
+                  <caret line="46" column="16" lean-forward="true" selection-start-line="46" selection-start-column="16" selection-end-line="46" selection-end-column="16" />
                   <folding>
                     <element signature="e#0#13#0" expanded="true" />
                   </folding>
@@ -121,18 +121,6 @@
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
-      <find>lootSign</find>
-      <find>Uint</find>
-      <find>on_connectInfo_ready</find>
-      <find>info_read</find>
-      <find>on_connectInfo_</find>
-      <find>on_connection_ac</find>
-      <find>pairSuccess.emit</find>
-      <find>pairSuccess.con</find>
-      <find>tcpSocket_request.connec</find>
-      <find>RSA</find>
-      <find>pair(</find>
-      <find>pairRequest</find>
       <find>self.on_connection_acc</find>
       <find>on_connection</find>
       <find>self.pairRequest</find>
@@ -144,13 +132,25 @@
       <find>write(</find>
       <find>deliver</find>
       <find>outgoingMessageReady</find>
-      <find>QString</find>
       <find>outgoingMessage</find>
       <find>pairPort</find>
       <find>print</find>
       <find>connect</find>
       <find>65355</find>
       <find>65</find>
+      <find>encryp</find>
+      <find>.emit(</find>
+      <find>.emit(bool</find>
+      <find>toggle</find>
+      <find>self.iden</find>
+      <find>self.pushButton_3</find>
+      <find>connect_click</find>
+      <find>peerAddre</find>
+      <find>QString</find>
+      <find>time</find>
+      <find>gmtime</find>
+      <find>kb</find>
+      <find>encrypted</find>
     </findStrings>
     <replaceStrings>
       <replace>//print</replace>
@@ -183,10 +183,10 @@
     </option>
   </component>
   <component name="ProjectFrameBounds">
-    <option name="x" value="-8" />
-    <option name="y" value="-8" />
-    <option name="width" value="1936" />
-    <option name="height" value="1056" />
+    <option name="x" value="227" />
+    <option name="y" value="26" />
+    <option name="width" value="974" />
+    <option name="height" value="1008" />
   </component>
   <component name="ProjectView">
     <navigator currentView="ProjectPane" proportions="" version="1">
@@ -518,17 +518,17 @@
     </todo-panel>
   </component>
   <component name="ToolWindowManager">
-    <frame x="-8" y="-8" width="1936" height="1056" extended-state="6" />
-    <editor active="true" />
+    <frame x="227" y="26" width="974" height="1008" extended-state="0" />
+    <editor active="false" />
     <layout>
-      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.23541667" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
+      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.32985386" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
       <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32980973" sideWeight="0.5" order="5" side_tool="false" content_ui="tabs" />
-      <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.24418604" sideWeight="0.31979167" order="6" side_tool="true" content_ui="tabs" />
+      <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.24610245" sideWeight="0.32254696" order="6" side_tool="true" content_ui="tabs" />
       <window_info id="Documentation" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="FLOATING" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" x="25" y="149" width="1732" height="847" />
       <window_info id="Find" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32769555" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="false" weight="0.33" sideWeight="0.5" order="9" side_tool="false" content_ui="tabs" />
       <window_info id="Python Console" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.3319239" sideWeight="0.65729165" order="7" side_tool="false" content_ui="tabs" />
-      <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.23361522" sideWeight="0.6802083" order="10" side_tool="false" content_ui="tabs" />
+      <window_info id="Run" active="true" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.24610245" sideWeight="0.67745304" order="10" side_tool="false" content_ui="tabs" />
       <window_info id="Structure" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.1336117" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.3329776" sideWeight="0.5" order="8" side_tool="false" content_ui="tabs" />
       <window_info id="Favorites" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="2" side_tool="true" content_ui="tabs" />
@@ -897,32 +897,12 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/rsatest.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="247">
-          <caret line="44" column="31" lean-forward="false" selection-start-line="44" selection-start-column="31" selection-end-line="44" selection-end-column="31" />
-          <folding>
-            <element signature="e#0#32#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/rsa.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="-13">
           <caret line="8" column="6" lean-forward="false" selection-start-line="8" selection-start-column="6" selection-end-line="8" selection-end-column="6" />
           <folding>
             <element signature="e#0#32#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/aes.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="232">
-          <caret line="27" column="0" lean-forward="false" selection-start-line="27" selection-start-column="0" selection-end-line="27" selection-end-column="0" />
-          <folding>
-            <element signature="e#0#13#0" expanded="true" />
           </folding>
         </state>
       </provider>
@@ -937,10 +917,30 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/rsatest.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="247">
+          <caret line="44" column="31" lean-forward="false" selection-start-line="44" selection-start-column="31" selection-end-line="44" selection-end-column="31" />
+          <folding>
+            <element signature="e#0#32#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/aes.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="504">
+          <caret line="46" column="16" lean-forward="true" selection-start-line="46" selection-start-column="16" selection-end-line="46" selection-end-column="16" />
+          <folding>
+            <element signature="e#0#13#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/UserA.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-157">
-          <caret line="1138" column="31" lean-forward="true" selection-start-line="1138" selection-start-column="31" selection-end-line="1138" selection-end-column="31" />
+        <state relative-caret-position="500">
+          <caret line="1463" column="1" lean-forward="true" selection-start-line="1463" selection-start-column="1" selection-end-line="1463" selection-end-column="1" />
           <folding>
             <element signature="e#24#70#0" expanded="true" />
           </folding>

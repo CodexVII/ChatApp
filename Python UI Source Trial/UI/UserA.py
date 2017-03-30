@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from PyQt4 import Qt, QtGui, QtCore, QtNetwork
 from random import randint
-from time import strftime, gmtime
+from time import strftime, localtime
 from emoji import emojize
 
 from Crypto.PublicKey import RSA
@@ -85,6 +85,8 @@ class ChatWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         self.logic.forwardSocketState.connect(self.on_socketState_changed)
         self.logic.fileRead.connect(self.on_file_attached)
         self.logic.fileSent.connect(self.on_file_sent)
+        self.logic.encryptedUpdate.connect(self.on_encryptedUpdate)
+        self.logic.forwardPeerDetails.connect(self.on_peer_update)
 
         # keep track of all sent messages
         self.history = []
@@ -108,10 +110,19 @@ class ChatWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
         self.connectDialog.inputReady.connect(self.on_connectInfo_ready)
         self.radioButton.clicked.connect(self.on_encrypt_clicked)
         self.radioButton_2.clicked.connect(self.on_decrypt_clicked)
+        self.pushButton_3.clicked.connect(self.on_quickConnect_clicked)
         # user hasn't placed any input yet so disable the button
         self.pushButton.setDisabled(True)
+        self.pushButton_3.setDisabled(True)
 
         self.lineEdit_4.setText(socket.gethostbyname(socket.gethostname()))
+
+        # connection vars
+        self.address = ""
+        self.port = ""
+
+        # flags
+        self.connectinInfoReady_f = False
 
         # set font for chat box and user input
         Qt.QFontDatabase.addApplicationFont("Segoe-UI-Emoji.ttf")
@@ -126,6 +137,29 @@ class ChatWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
                    font-size: 14px;
                    }
                """)
+
+    def on_peer_update(self, address, port):
+        self.address = address
+        self.port = port
+        self.connectinInfoReady_f = True
+        print "Address: %s, Port: %s" % (address, port)
+        self.pushButton_3.setEnabled(True)
+
+        self.displayMessage("Connected to %s" % address, sender=True)
+
+    def on_encryptedUpdate(self, encrypted):
+        if encrypted and not self.radioButton.isChecked():
+            self.radioButton.click()
+            self.displayMessage("Connection encrypted.")
+        elif not encrypted and not self.radioButton_2.isChecked():
+            self.radioButton_2.click()
+            self.displayMessage("Connection decrypted.")
+
+    def on_quickConnect_clicked(self):
+        if self.radioButton.isChecked():
+            self.logic.beginPairing(self.address, self.port, encrypted=True)
+        else:
+            self.logic.beginPairing(self.address, self.port, encrypted=False)
 
     ####################################################################
     # on_serverPort_ready:
@@ -159,6 +193,10 @@ class ChatWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
     #   port    -   The target host's listening port    (str)
     ####################################################################
     def on_connectInfo_ready(self, address, port):
+        self.connectinInfoReady_f = True
+        self.address = address
+        self.port = port
+
         if self.radioButton.isChecked():
             # encrypted
             self.logic.beginPairing(address, port, encrypted=True)
@@ -166,11 +204,19 @@ class ChatWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
             # decrypted
             self.logic.beginPairing(address, port, encrypted=False)
 
-    def on_encrypt_clicked(self):
+    def on_encrypt_clicked(self, human):
         self.logic.encryptConnection()
+        # if self.connectinInfoReady_f and human:
+        # self.connectDialog.pushButton.click()
+        # pass
+        # self.logic.beginPairing(self.address, self.port, encrypted=True)
 
     def on_decrypt_clicked(self):
         self.logic.decryptConnection()
+        # if self.connectinInfoReady_f:
+        # self.connectDialog.pushButton.click()
+        # pass
+        # self.logic.beginPairing(self.address, self.port, encrypted=False)
 
     ####################################################################
     # on_about_clicked
@@ -334,7 +380,7 @@ class ChatWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
 
         # Display file statistics
         msg.setInformativeText("File Name: " + str(fileName) + "\n" +
-                               "File Size: " + str(fileSize) + " kb" + "\n\n" +
+                               "File Size: " + str(fileSize) + " kB" + "\n\n" +
                                "SHA-256: " + str(hash))
 
         # Executes the dialog box rather than just showing as show()
@@ -354,7 +400,7 @@ class ChatWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
     #               or receiver. Defaults to False     (bool)
     ####################################################################
     def displayMessage(self, msg, sender=False):
-        timestamp = strftime("%H:%M", gmtime())
+        timestamp = strftime("%H:%M", localtime())
         if sender:
             self.textBrowser.append("[" + str(timestamp) + "] " + "You>> " + emojize(str(msg), use_aliases=True))
         else:
@@ -469,6 +515,7 @@ class Logic(QtCore.QObject):
     # to GUI class
     messageReceived = QtCore.pyqtSignal(str)
     fileSent = QtCore.pyqtSignal(str)
+    encryptedUpdate = QtCore.pyqtSignal(bool)
 
     """""""""""""""""""""""""""""""""""""""
     CONNECTION SIGNALS
@@ -476,11 +523,14 @@ class Logic(QtCore.QObject):
     # To comms class
     pairRequest = QtCore.pyqtSignal(str, str)
     tearDownInitiated = QtCore.pyqtSignal()
+    updateInitiator = QtCore.pyqtSignal(bool)
+    updateEncrypted = QtCore.pyqtSignal(bool)
 
     # To GUI class
     forwardServerPort = QtCore.pyqtSignal(int)
     forwardConnectionStatus = QtCore.pyqtSignal(str)
     forwardSocketState = QtCore.pyqtSignal(str)
+    forwardPeerDetails = QtCore.pyqtSignal(str, str)
 
     """""""""""""""""""""""""""""""""""""""
     FILE SIGNALS
@@ -509,7 +559,8 @@ class Logic(QtCore.QObject):
         #        self.comm.listenError.connect(lambda: self.displayListenStatus(self.comm.__listenPortLive))
         self.comm.fileReceived.connect(self.on_file_received)
         self.comm.serverReady.connect(self.on_server_ready)
-
+        self.comm.encrypted.connect(self.on_encrypted)
+        self.comm.peerDetails.connect(self.on_peerDetails_arrived)
         self.commThread = QtCore.QThread()
         self.comm.moveToThread(self.commThread)
 
@@ -517,6 +568,9 @@ class Logic(QtCore.QObject):
         self.fileReadyForWrite.connect(self.comm.write)
         self.pairRequest.connect(self.comm.pair)
         self.tearDownInitiated.connect(self.comm.tearDown)
+        self.updateInitiator.connect(self.comm.on_update_initiator)
+        self.updateEncrypted.connect(self.comm.on_update_encrypted)
+
         self.commThread.started.connect(self.comm.run)
         self.commThread.start()
 
@@ -530,6 +584,12 @@ class Logic(QtCore.QObject):
         self.readAttachedFile.connect(self.fileIO.readFile)
         self.fileIOThread.started.connect(self.fileIO.run)
         self.fileIOThread.start()
+
+    def on_peerDetails_arrived(self, address, port):
+        self.forwardPeerDetails.emit(address, port)
+
+    def on_encrypted(self, encrypted):
+        self.encryptedUpdate.emit(encrypted)
 
     ####################################################################
     # on_pair_state_changed
@@ -685,8 +745,9 @@ class Logic(QtCore.QObject):
 
         self.tearDownInitiated.emit()
         # get the connection details from the connection dialog
-        self.comm.initiator = True
-        self.comm.encrypted_f = encrypted
+        self.updateInitiator.emit(True)
+        print "Comm status: %r" % self.comm.initiator
+        self.updateEncrypted.emit(encrypted)
         self.pairRequest.emit(address, port)
         # self.comm.pair(address, port)
 
@@ -737,10 +798,10 @@ class Logic(QtCore.QObject):
         self.tearDownInitiated.emit()
 
     def decryptConnection(self):
-        self.comm.encrypted_f = False
+        self.updateEncrypted.emit(False)
 
     def encryptConnection(self):
-        self.comm.encrypted_f = True
+        self.updateEncrypted.emit(True)
 
 
 ########################################################################################################################
@@ -791,6 +852,7 @@ class Communication(QtCore.QThread):
     """""""""""""""""""""""""""""""""""""""
     messageReceived = QtCore.pyqtSignal(str)
     fileReceived = QtCore.pyqtSignal(str, int, str)
+    encrypted = QtCore.pyqtSignal(bool)
 
     """""""""""""""""""""""""""""""""""""""
     PAIRING SIGNALS
@@ -799,6 +861,7 @@ class Communication(QtCore.QThread):
     pairStateChanged = QtCore.pyqtSignal(int)
     pairSuccess = QtCore.pyqtSignal()
     serverReady = QtCore.pyqtSignal(int)
+    peerDetails = QtCore.pyqtSignal(str, str)
 
     def __init__(self):
         super(Communication, self).__init__()
@@ -836,6 +899,7 @@ class Communication(QtCore.QThread):
         self.initiator = False
         self.__secretReady = False
         self.__aes = aes.AESCipher(key="")
+        # self.identity = ""
 
     ####################################################################
     # run
@@ -855,6 +919,12 @@ class Communication(QtCore.QThread):
 
         self.startTcpServer()
         QtCore.QThread.exec_(self)
+
+    def on_update_encrypted(self, encrypted):
+        self.encrypted_f = encrypted
+
+    def on_update_initiator(self, initiator):
+        self.initiator = initiator
 
     ####################################################################
     # on_connectionState_changed
@@ -975,6 +1045,12 @@ class Communication(QtCore.QThread):
         instr = QtCore.QDataStream(self.__tcpSocket_receive)
         instr.setVersion(QtCore.QDataStream.Qt_4_0)
 
+        # updates the GUI on the status of encryption for toggle button
+        # if not self.__secretReady:
+        #     self.encrypted.emit(False)
+        # else:
+        #     self.encrypted.emit(True)
+
         # if we haven't read anything yet from the server and size is not set
         if self.__blockSize == 0:
             # the first two bytes are reserved for the size of the payload.
@@ -1003,6 +1079,7 @@ class Communication(QtCore.QThread):
             # sometimes required.. ie. over local network this seemed to become an issue.. fine local
             self.__pairPort = instr.readString()
             print "Port read as: " + self.__pairPort
+            self.peerDetails.emit(str(self.__tcpSocket_receive.peerAddress().toString()), self.__pairPort)
             self.pair(self.__tcpSocket_receive.peerAddress(), int(self.__pairPort))
 
         elif self.__msgType == Config.Message_t:
@@ -1011,15 +1088,18 @@ class Communication(QtCore.QThread):
             if self.__secretReady:
                 encrypted_msg = instr.readString()
                 msg = self.__aes.decrypt(encrypted_msg)
+                # self.encrypted.emit(True)
             else:
                 msg = instr.readString()
+                # self.encrypted.emit(False)
             self.messageReceived.emit(msg)
         elif self.__msgType == Config.FileData_t:
             if self.__secretReady:
+                # self.encrypted.emit(True)
                 self.__rawFile = self.__aes.decrypt(instr.readRawData(self.__blockSize))
             else:
                 self.__rawFile = instr.readRawData(self.__blockSize)
-
+                # self.encrypted.emit(False)
             # downloads go to the user's desktop folder. will emit a signal when finished
             file = QtCore.QFile(Config.DownloadDir + self.__fileName)
             file.open(QtCore.QIODevice.WriteOnly)
@@ -1032,8 +1112,10 @@ class Communication(QtCore.QThread):
         elif self.__msgType == Config.FileName_t:
             # store the file name. used when saving the received file that should come straight after this
             if self.__secretReady:
+                # self.encrypted.emit(True)
                 self.__fileName = self.__aes.decrypt(instr.readString())
             else:
+                # self.encrypted.emit(False)
                 self.__fileName = instr.readString()
                 # print "received file name: " + str(self.__fileName)
         elif self.__msgType == Config.Security_t:
@@ -1043,12 +1125,18 @@ class Communication(QtCore.QThread):
             sender = in_rec.readString()
             receiver = in_rec.readString()
 
+            # print "Sender: %s, Receiver: %s" % (sender, receiver)
+            # if not self.initiator:
+            #     self.identity = "B"
+            # else:
+            #     self.identity = "A"
+
             # Go through all of the stages depending on whether the client is the initiator or not
-            if not self.initiator:
+            if "B" in receiver:
                 # this is the receiver
                 # print "not initiator"
                 if self.__stage == 0:
-                    "received Ka.. sending kb"
+                    # print "received Ka.. sending kb"
                     self.__partnerKey = RSA.importKey(in_rec.readString())
                     # send public key
                     out = self.blockBuilder("B", "A", self.__key.publickey().exportKey())
@@ -1056,7 +1144,7 @@ class Communication(QtCore.QThread):
                     # increment stage
                     self.__stage += 1
                 elif self.__stage == 1:
-                    "Received PassA... generating session key.. sending Pass B"
+                    # print "Received PassA... generating session key.. sending Pass B"
                     self.__partnerPass = in_rec.readString()
                     # generate session key
                     self.__sessionKey = self.__partnerPass + self.__pass
@@ -1068,23 +1156,24 @@ class Communication(QtCore.QThread):
                     # increment stage
                     self.__stage += 1
                 elif self.__stage == 2:
-                    # Received PassB... checking if correct
+                    # print "Received PassB... checking if correct"
                     nonce = in_rec.readString()
                     if nonce in self.__pass:
                         print "We have a match"
                     else:
-                        print "Nonce: %s did not match %s" % nonce, self.__pass
+                        print "Nonce: %s did not match %s" % (nonce, self.__pass)
                     # setup AES cipher
                     self.__secretReady = True
                     print "Session key: " + self.__sessionKey
                     self.__aes = aes.AESCipher(key=self.__sessionKey)
                     # increment stage
                     self.__stage += 1
-            else:
+            elif "A" in receiver:
                 # print "initiator"
                 if self.__stage == 0:
-                    "Received Kb... Sending PassA"
-                    self.__partnerKey = RSA.importKey(in_rec.readString())
+                    # print "Received Kb... Sending PassA"
+                    key = in_rec.readString()
+                    self.__partnerKey = RSA.importKey(key)
                     # sign pass
                     signature = security.sign(self.__pass, self.__key.exportKey())
                     # send pass and signature
@@ -1093,20 +1182,20 @@ class Communication(QtCore.QThread):
                     # increment stage
                     self.__stage += 1
                 elif self.__stage == 1:
-                    "Received PassB... generating session key... sending pass b"
+                    # print "Received PassB... generating session key... sending pass b"
                     self.__partnerPass = in_rec.readString()
                     nonce = in_rec.readString()  # read back response should be same
                     if nonce in self.__pass:
                         print "We have a match"
                     else:
-                        print "Nonce: %s did not match %s" % nonce, self.__pass
+                        print "Nonce: %s did not match %s" % (nonce, self.__pass)
                     # generate session key
                     self.__sessionKey = self.__pass + self.__partnerPass
                     out = self.blockBuilder("A", "B", self.__partnerPass)
                     # send challenge response
                     self.write(Config.Security_t, out)
                     # setup AES cipher
-                    print "Session key: " + self.__sessionKey
+                    # print "Session key: " + self.__sessionKey
                     self.__secretReady = True
                     self.__aes = aes.AESCipher(key=self.__sessionKey)
                     # increment stage
@@ -1138,9 +1227,18 @@ class Communication(QtCore.QThread):
         # give the connected host the port address of the listening server to allow them to connect back
         self.write(Config.Port_t, str(self.__tcpServer.serverPort()))
 
+        print "========================================================"
         print "Starting security"
+        print "========================================================"
         print "Initiator: %r, Encrypted: %r" % (self.initiator, self.encrypted_f)
+
+        if self.encrypted_f:
+            self.encrypted.emit(True)
+        else:
+            self.encrypted.emit(False)
+
         if self.initiator and self.encrypted_f:
+            # self.identity = "A"
             block = QtCore.QByteArray()
             out = QtCore.QDataStream(block, QtCore.QIODevice.WriteOnly)
             out.writeString("A")
@@ -1150,6 +1248,7 @@ class Communication(QtCore.QThread):
 
     def tearDown(self):
         # disconnect both request and receive sockets
+        print "Tearing down"
         self.__tcpSocket_request.abort()
         self.__tcpSocket_receive.abort()
 
@@ -1160,7 +1259,16 @@ class Communication(QtCore.QThread):
         self.__partnerPass = ""
         self.__sessionKey = ""
         self.__secretReady = False
+        self.encrypted_f = False
         self.__aes = aes.AESCipher("")
+        self.initiator = False
+        # self.identity = ""
+
+        # updates the GUI depending on encrypted flag
+        # if self.encrypted_f:
+        #     self.encrypted.emit(True)
+        # else:
+        #     self.encrypted.emit(False)
 
 
 ########################################################################################################################
