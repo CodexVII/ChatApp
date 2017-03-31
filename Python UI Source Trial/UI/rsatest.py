@@ -5,6 +5,7 @@ from PyQt4 import QtCore
 import base64
 import random
 
+
 ##################################################
 # test  segmented encrypt/decrypt
 # Encode message in base64
@@ -16,6 +17,8 @@ def heavyEncrypt(plaintext, public_key):
     result = []
     step = 0
     text = base64.b64encode(plaintext)
+    print "Encrypt length: " + str(len(plaintext))
+    print "Encoded: " + text
     while 1:
         # read 128 characters at a time
         s = text[step * 128:(step + 1) * 128]
@@ -29,32 +32,30 @@ def heavyEncrypt(plaintext, public_key):
 def heavyDecrypt(ciphertext, private_key):
     step = 0
     result = []
+    text = str(ciphertext)
+    # print ciphertext
     while 1:
-        s = ciphertext[step * 128:(step + 1) * 128]
+        s = text[step * 128:(step + 1) * 128]
         if not s:
             break
         result.append(private_key.decrypt(s))
         step += 1
     # assumes data was encoded in base64
-    return base64.b64decode(''.join(result))
+    print "Decoded: " + ''.join(result)
+    outcome = base64.b64decode(''.join(result))
+
+    print "Decrypt length: " + str(len(outcome))
+    return outcome
 
 
-if __name__ == '__main__':
+def test1():
     ##################################################
     # setting up payload
     ##################################################
     # generate keys
-    print Random.new().read
-    print Random.new().read
     key_A = RSA.generate(1024)
     key_B = RSA.generate(1024)
 
-
-    print key_A.exportKey()
-    print key_B.exportKey()
-    keb_B = RSA.importKey(key_A.publickey().exportKey()).exportKey()
-
-    print keb_B
     pub_A = key_A.publickey()
     pub_B = key_B.publickey()
 
@@ -115,7 +116,6 @@ if __name__ == '__main__':
     toread = out.readUInt16()
     print out.readRawData(toread)  # rawData
 
-
     # print out.readString()
 
 
@@ -123,7 +123,6 @@ if __name__ == '__main__':
 
     encrypted = heavyEncrypt("hellob", pub_B)
     print heavyDecrypt(encrypted, key_B)
-
 
     ##################################################
     # test QByteArray reconstruction
@@ -139,8 +138,14 @@ if __name__ == '__main__':
     ##################################################
     # encrypt the signature and challenge
     encrypted_block = heavyEncrypt(block, pub_B)
+    print "-------------------------"
+    print "Encrypted"
+    print encrypted_block
+    print "-------------------------"
+
     # decrypt
     decrypted_block = heavyDecrypt(encrypted_block, key_B)
+
     rebuild = QtCore.QByteArray(decrypted_block)
     # read
     re = QtCore.QDataStream(rebuild, QtCore.QIODevice.ReadOnly)
@@ -159,3 +164,90 @@ if __name__ == '__main__':
     print pub_A.verify(sha2.hexdigest(), (long(lootSign),))
 
 
+def writeRaw(stream, data):
+    old_pos = stream.device().pos()
+    stream.writeUInt16(0)
+    stream.writeRawData(data)
+    new_pos = stream.device().pos()
+    size = new_pos - old_pos - 2  # -2 for UInt16
+    stream.device().seek(old_pos)
+    stream.writeUInt16(size)
+    stream.device().seek(new_pos)
+
+
+def blockBuilder(*args):
+    block = QtCore.QByteArray()
+    stream = QtCore.QDataStream(block, QtCore.QIODevice.WriteOnly)
+
+    print args
+    for arg in args:
+        if str(type(arg)) in "<type 'str'>":
+            stream.writeString(arg)
+        elif str(type(arg)) in "<class 'PyQt4.QtCore.QByteArray'>":
+            stream.writeBytes(arg)
+        else:
+            print "Argument not valid"
+
+    return block
+
+
+def blockReader(block, items):
+    stream = QtCore.QDataStream(block, QtCore.QIODevice.ReadOnly)
+    result = []
+    for item in items:
+        if str(item) in "<type 'str'>":
+            result.append(stream.readString())
+        elif str(item) in "<class 'PyQt4.QtCore.QByteArray'>":
+            result.append(stream.readBytes())
+        else:
+            print "Item not valid"
+    return tuple(result)
+
+
+def test2():
+    key_A = RSA.generate(1024)
+    key_B = RSA.generate(1024)
+
+    pub_A = key_A.publickey()
+    pub_B = key_B.publickey()
+
+    # create block
+    # write encrypted
+    # retrieve block
+    # read encrypted
+
+    # plain = QtCore.QByteArray()
+    #
+    # encrypted = heavyEncrypt("note", key_B)
+    # decrypted = heavyDecrypt(encrypted, key_B)
+    for i in range(1):
+        print "-------------------------------------"
+        print "iter %d" % i
+        print "-------------------------------------"
+        plain = QtCore.QByteArray()
+        plainWriter = QtCore.QDataStream(plain, QtCore.QIODevice.WriteOnly)
+        block = blockBuilder("This is real", "This is me")
+        encrypted = heavyEncrypt(block, key_B)
+        plainWriter.writeString("A")
+        plainWriter.writeString("B")
+        writeRaw(plainWriter, encrypted)
+
+        # print encrypted
+
+
+        enc = QtCore.QByteArray(plain)
+        reader = QtCore.QDataStream(enc, QtCore.QIODevice.ReadOnly)
+        reader.readString()
+        reader.readString()
+        size = reader.readUInt16()
+        decrypted = heavyDecrypt(reader.readRawData(size), key_B)
+        block = QtCore.QByteArray(decrypted)
+        msg1, msg2 = blockReader(block, (str, str))
+        print msg1
+        print msg2
+        # decrypted = heavyDecrypt(encrypted, key_B)
+        # print decrypted
+
+
+if __name__ == '__main__':
+    test2()
