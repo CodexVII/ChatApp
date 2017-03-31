@@ -29,6 +29,11 @@ def heavyEncrypt(plaintext, public_key):
     return ''.join(result)
 
 
+def sha256(data):
+    digest = SHA256.new()
+    digest.update(data)
+    return digest.digest()
+
 def heavyDecrypt(ciphertext, private_key):
     step = 0
     result = []

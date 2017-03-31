@@ -6,17 +6,12 @@ import base64
 import random
 
 
-##################################################
-# test  segmented encrypt/decrypt
-# Encode message in base64
-# encrypt in 128 segments
-# decrypt in 128 segments
-# decode message in base64
-##################################################
 def heavyEncrypt(plaintext, public_key):
     result = []
     step = 0
     text = base64.b64encode(plaintext)
+    print "Encrypt length: " + str(len(plaintext))
+    print "Encoded: " + text
     while 1:
         # read 128 characters at a time
         s = text[step * 128:(step + 1) * 128]
@@ -30,14 +25,20 @@ def heavyEncrypt(plaintext, public_key):
 def heavyDecrypt(ciphertext, private_key):
     step = 0
     result = []
+    text = str(ciphertext)
+    # print ciphertext
     while 1:
-        s = ciphertext[step * 128:(step + 1) * 128]
+        s = text[step * 128:(step + 1) * 128]
         if not s:
             break
         result.append(private_key.decrypt(s))
         step += 1
     # assumes data was encoded in base64
-    return base64.b64decode(''.join(result))
+    print "Decoded: " + ''.join(result)
+    outcome = base64.b64decode(''.join(result))
+
+    print "Decrypt length: " + str(len(outcome))
+    return outcome
 
 
 def sign(message, key):
@@ -46,6 +47,25 @@ def sign(message, key):
     digest.update(message)
     return signer.sign(digest.hexdigest(), None)[0]
 
+
+def sha256(data):
+    digest = SHA256.new()
+    digest.update(data)
+    return digest.digest()
+
+
+def writeRaw(stream, data):
+    old_pos = stream.device().pos()
+    stream.writeUInt16(0)
+    stream.writeRawData(data)
+    new_pos = stream.device().pos()
+    size = new_pos - old_pos - 2  # -2 for UInt16
+    stream.device().seek(old_pos)
+    stream.writeUInt16(size)
+    stream.device().seek(new_pos)
+
+    print "-----WRITE RAW SIZE------"
+    print size
 
 def verify(message, signature, key):
     verifier = RSA.importKey(key)

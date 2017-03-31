@@ -15,7 +15,8 @@ import hashlib
 import aes
 import socket
 import security
-import rsatest
+import security
+
 
 ########################################################################################################################
 # ChatWindow
@@ -1014,13 +1015,12 @@ class Communication(QtCore.QThread):
         block = QtCore.QByteArray()
         stream = QtCore.QDataStream(block, QtCore.QIODevice.WriteOnly)
 
-
         for arg in args:
             print arg
             if str(type(arg)) in "<type 'str'>":
                 stream.writeString(arg)
             elif str(type(arg)) in "<type 'bytearray'>":
-                rsatest.writeRaw(stream, arg)
+                security.writeRaw(stream, arg)
             else:
                 print "Argument not valid"
 
@@ -1159,29 +1159,57 @@ class Communication(QtCore.QThread):
                 elif self.__stage == 1:
                     # print "Received PassA... generating session key.. sending Pass B"
                     size = in_rec.readUInt16()
-                    print "---------size-------"
+                    print "---------size----B-"
                     print size
-                    decrypted = rsatest.heavyDecrypt(in_rec.readRawData(size), self.__key)
+                    decrypted = security.heavyDecrypt(in_rec.readRawData(size), self.__key)
 
                     block = QtCore.QByteArray(decrypted)
                     reader = QtCore.QDataStream(block, QtCore.QIODevice.ReadOnly)
                     self.__partnerPass = reader.readString()
                     signature = reader.readString()
 
+                    # check message with signature
+                    security.verify(self.__partnerPass, signature, self.__partnerKey.exportKey())
+
                     # self.__partnerPass, signature = self.streamReader(in_rec, (str, str))
                     # generate session key
                     self.__sessionKey = self.__partnerPass + self.__pass
-                    # encrypt message before hand for AES
+                    self.__aes = aes.AESCipher(key=self.__sessionKey)
+                    encrypted_partnerPass = self.__aes.encrypt(self.__pass)
 
-                    security.verify(self.__partnerPass, signature, self.__partnerKey.exportKey())
+                    # get signature
+                    signed_msg = security.sign(self.__pass + encrypted_partnerPass, self.__key.exportKey())
+
+                    # encrypt msg
+                    print "----B MESSAGE ---------"
+                    msg = QtCore.QByteArray()
+                    writer = QtCore.QDataStream(msg, QtCore.QIODevice.WriteOnly)
+                    writer.writeString(self.__pass)
+                    print msg
+                    writer.writeString(encrypted_partnerPass)
+                    print msg
+                    writer.writeString(str(signed_msg))
+                    print msg
+                    # msg = self.blockBuilder(self.__pass, encrypted_partnerPass, signed_msg)
+
+
+
+                    encrypted_msg = security.heavyEncrypt(msg, self.__partnerKey)
+
+                    # write to block
+                    out_block = self.blockBuilder("B", "A", bytearray(encrypted_msg))
+                    self.write(Config.Security_t, out_block)
+
                     # send pass B
-                    out = self.blockBuilder("B", "A", self.__pass, self.__partnerPass)
-                    self.write(Config.Security_t, out)
+                    # out = self.blockBuilder("B", "A", self.__pass, self.__partnerPass)
+                    # self.write(Config.Security_t, out)
+
                     # increment stage
                     self.__stage += 1
                 elif self.__stage == 2:
                     # print "Received PassB... checking if correct"
-                    nonce = in_rec.readString()
+
+                    nonce = self.__aes.decrypt(in_rec.readString())
                     if nonce in self.__pass:
                         print "We have a match"
                     else:
@@ -1189,7 +1217,6 @@ class Communication(QtCore.QThread):
                     # setup AES cipher
                     print "Session key: " + self.__sessionKey
 
-                    self.__aes = aes.AESCipher(key=self.__sessionKey)
                     self.__secretReady = True
                     # increment stage
                     self.__stage += 1
@@ -1208,7 +1235,7 @@ class Communication(QtCore.QThread):
                     writer.writeString(self.__pass)
                     writer.writeString(str(signature))
 
-                    encrypted_msg = rsatest.heavyEncrypt(block, self.__partnerKey)
+                    encrypted_msg = security.heavyEncrypt(block, self.__partnerKey)
                     byte_msg = bytearray(encrypted_msg)
                     print "-----Byte-----"
                     print byte_msg
@@ -1220,30 +1247,45 @@ class Communication(QtCore.QThread):
                     self.__stage += 1
                 elif self.__stage == 1:
                     print "Received PassB... generating session key... sending pass b"
-                    self.__partnerPass, nonce = self.streamReader(in_rec, (str, str))
 
-                    # decrypt AES before hand
+                    size = in_rec.readUInt16()
+                    print "---------size-------"
+                    print size
+                    decrypted = security.heavyDecrypt(in_rec.readRawData(size), self.__key)
+
+                    block = QtCore.QByteArray(decrypted)
+                    reader = QtCore.QDataStream(block, QtCore.QIODevice.ReadOnly)
+                    self.__partnerPass = reader.readString()
+                    nonce = reader.readString()
+                    signature = reader.readString()
+
+
+                    # self.__partnerPass, nonce = self.streamReader(in_rec, (str, str))
+                    #
+                    # # decrypt AES before hand
                     if nonce in self.__pass:
                         print "We have a match"
                     else:
                         print "Nonce: %s did not match %s" % (nonce, self.__pass)
-
+                    #
                     # generate session key
                     self.__sessionKey = self.__pass + self.__partnerPass
-                    out = self.blockBuilder("A", "B", self.__partnerPass)
-
-                    # send challenge response
-                    self.write(Config.Security_t, out)
-                    # setup AES cipher
-                    print "Session key: " + self.__sessionKey
-
                     self.__aes = aes.AESCipher(key=self.__sessionKey)
+                    msg = self.__aes.encrypt(self.__partnerPass)
+                    out = self.blockBuilder("A", "B", msg)
+                    #
+                    # # send challenge response
+                    self.write(Config.Security_t, out)
+                    # # setup AES cipher
+                    # print "Session key: " + self.__sessionKey
+                    #
 
-                    # increment stage
+                    #
+                    # # increment stage
                     self.__stage += 1
-                    print self.__sessionKey
+                    # print self.__sessionKey
                     self.__secretReady = True
-                    # self.encrypted.emit(True)
+                    self.encrypted.emit(True)
 
         # reset the block size for next msg to be read
         self.__blockSize = 0
