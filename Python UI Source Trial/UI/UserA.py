@@ -15,7 +15,6 @@ import hashlib
 import aes
 import socket
 import security
-import security
 
 
 ########################################################################################################################
@@ -894,7 +893,7 @@ class Communication(QtCore.QThread):
         print "Generated Key"
         print self.__key.publickey().exportKey()
         self.__partnerKey = ""
-        self.__pass = str(randint(0, sys.maxint))
+        self.__pass = str(randint(0, 500000))
         self.__partnerPass = ""
         self.__sessionKey = ""
         self.initiator = False
@@ -1169,16 +1168,16 @@ class Communication(QtCore.QThread):
                     signature = reader.readString()
 
                     # check message with signature
-                    security.verify(self.__partnerPass, signature, self.__partnerKey.exportKey())
+                    security.verify(security.sha256(self.__partnerPass), signature, self.__partnerKey.exportKey())
 
                     # self.__partnerPass, signature = self.streamReader(in_rec, (str, str))
                     # generate session key
-                    self.__sessionKey = self.__partnerPass + self.__pass
+                    self.__sessionKey = security.sha256(self.__partnerPass + self.__pass)
                     self.__aes = aes.AESCipher(key=self.__sessionKey)
                     encrypted_partnerPass = self.__aes.encrypt(self.__pass)
 
                     # get signature
-                    signed_msg = security.sign(self.__pass + encrypted_partnerPass, self.__key.exportKey())
+                    signed_msg = security.sign(security.sha256(self.__pass + encrypted_partnerPass), self.__key.exportKey())
 
                     # encrypt msg
                     print "----B MESSAGE ---------"
@@ -1228,7 +1227,7 @@ class Communication(QtCore.QThread):
                     key = in_rec.readString()
                     self.__partnerKey = RSA.importKey(key)
                     # sign pass
-                    signature = security.sign(self.__pass, self.__key.exportKey())
+                    signature = security.sign(security.sha256(self.__pass), self.__key.exportKey())
 
                     block = QtCore.QByteArray()
                     writer = QtCore.QDataStream(block, QtCore.QIODevice.WriteOnly)
@@ -1269,7 +1268,7 @@ class Communication(QtCore.QThread):
                         print "Nonce: %s did not match %s" % (nonce, self.__pass)
                     #
                     # generate session key
-                    self.__sessionKey = self.__pass + self.__partnerPass
+                    self.__sessionKey = security.sha256(self.__pass + self.__partnerPass)
                     self.__aes = aes.AESCipher(key=self.__sessionKey)
                     msg = self.__aes.encrypt(self.__partnerPass)
                     out = self.blockBuilder("A", "B", msg)
@@ -1343,7 +1342,7 @@ class Communication(QtCore.QThread):
         self.__stage = 0
         self.__key = RSA.generate(1024)
         self.__partnerKey = ""
-        self.__pass = str(randint(0, sys.maxint))
+        self.__pass = str(randint(0, 500000))
         self.__partnerPass = ""
         self.__sessionKey = ""
         self.__secretReady = False
