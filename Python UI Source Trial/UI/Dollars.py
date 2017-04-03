@@ -8,12 +8,8 @@ from Crypto.PublicKey import RSA
 from Crypto import Random
 import ast  # ast = Abstract Syntax Trees - used for decrypting message
 
-import sys
+import sys, hashlib, ctypes, socket
 import ui_chat, ui_connect, ui_about, ui_demo
-import ctypes
-import hashlib
-import aes
-import socket
 import security
 
 
@@ -150,10 +146,8 @@ class ChatWindow(QtGui.QMainWindow, ui_chat.Ui_MainWindow):
     def on_encryptedUpdate(self, encrypted):
         if encrypted and not self.radioButton.isChecked():
             self.radioButton.click()
-            # self.displayMessage("Connection encrypted.")
         elif not encrypted and not self.radioButton_2.isChecked():
             self.radioButton_2.click()
-            # self.displayMessage("Connection decrypted.")
 
     def on_quickConnect_clicked(self):
         if self.radioButton.isChecked():
@@ -804,6 +798,63 @@ class Logic(QtCore.QObject):
         self.updateEncrypted.emit(True)
 
 
+############################################################################
+# Helper Functions
+#
+# Streamlines use of QDatastream object in the Communication class
+############################################################################
+
+
+def writeRaw(stream, data):
+    old_pos = stream.device().pos()
+    stream.writeUInt16(0)
+    stream.writeRawData(data)
+    new_pos = stream.device().pos()
+    size = new_pos - old_pos - 2  # -2 for UInt16
+    stream.device().seek(old_pos)
+    stream.writeUInt16(size)
+    stream.device().seek(new_pos)
+
+    print "-----WRITE RAW SIZE------"
+    print size
+
+
+# returns QDataStream object for processing
+def blockBuilder(*args):
+    block = QtCore.QByteArray()
+    stream = QtCore.QDataStream(block, QtCore.QIODevice.WriteOnly)
+
+    for arg in args:
+        print arg
+        if str(type(arg)) in "<type 'str'>":
+            stream.writeString(arg)
+        elif str(type(arg)) in "<type 'bytearray'>":
+            writeRaw(stream, arg)
+        else:
+            print "Argument not valid"
+
+    return block
+
+
+def streamReader(stream, items):
+    result = []
+    for item in items:
+        if str(item) in "<type 'str'>":
+            result.append(stream.readString())
+        elif str(item) in "<type 'bytearray'>":
+            size = stream.readUInt16()
+            result.append(stream.readRawData(size))
+        else:
+            print "Item not valid"
+    return tuple(result)
+
+
+def blockReader(block, items):
+    stream = QtCore.QDataStream(block, QtCore.QIODevice.ReadOnly)
+    result = streamReader(stream, items)
+    return result
+
+
 ########################################################################################################################
 # Communication
 #
@@ -893,12 +944,12 @@ class Communication(QtCore.QThread):
         print "Generated Key"
         print self.__key.publickey().exportKey()
         self.__partnerKey = ""
-        self.__pass = str(randint(0, 500000))
+        self.__pass = str(randint(0, Config.MaxSessionKeyValue))
         self.__partnerPass = ""
         self.__sessionKey = ""
         self.initiator = False
         self.__secretReady = False
-        self.__aes = aes.AESCipher(key="")
+        self.__aes = security.AESCipher(key="")
         # self.identity = ""
 
     ####################################################################
@@ -982,6 +1033,7 @@ class Communication(QtCore.QThread):
         out.writeUInt32(0)  # placeholder for payload size
         out.writeUInt16(payload_t)  # payload_t is int, constructor only takes str
 
+        # encrypt the payload if the secret key flag is set
         if self.__secretReady:
             print "Encrypting with AES"
             payload = self.__aes.encrypt(payload)
@@ -1009,54 +1061,6 @@ class Communication(QtCore.QThread):
 
         self.__tcpSocket_request.write(block)
 
-    # returns QDataStream object for processing
-    def blockBuilder(self, *args):
-        block = QtCore.QByteArray()
-        stream = QtCore.QDataStream(block, QtCore.QIODevice.WriteOnly)
-
-        for arg in args:
-            print arg
-            if str(type(arg)) in "<type 'str'>":
-                stream.writeString(arg)
-            elif str(type(arg)) in "<type 'bytearray'>":
-                security.writeRaw(stream, arg)
-            else:
-                print "Argument not valid"
-
-        return block
-
-    def streamReader(self, stream, items):
-        result = []
-        for item in items:
-            if str(item) in "<type 'str'>":
-                result.append(stream.readString())
-            elif str(item) in "<type 'bytearray'>":
-                size = stream.readUInt16()
-                result.append(stream.readRawData(size))
-            else:
-                print "Item not valid"
-        return tuple(result)
-
-    # Goal: set a session key
-    # if B, I am B
-    #   stage 0
-    #       send Kb
-    #       stage++
-    #   stage 1
-    #       gen Kab
-    #       send PassB (challenge)
-    #       stage++
-    #   stage2
-    #       verify response
-    #       stage++
-    # if A, I am A
-    #   stage 0
-    #       send PassA
-    #       stage++
-    #   stage 1
-    #       stage++
-    #       send PassB (response)
-    #
     def read(self):
         # print "Reading from thread: " + str(int(QtCore.QThread.currentThreadId()))
         # Constructs a data stream that uses the I/O device.
@@ -1080,7 +1084,6 @@ class Communication(QtCore.QThread):
             # print "Msg type: " + str(self.__msgType)
         # the data is incomplete so we return until the data is good
         if self.__tcpSocket_receive.bytesAvailable() < self.__blockSize:
-            # print "message incomplete"
             return
 
         # sort out what to do with the received data
@@ -1099,18 +1102,16 @@ class Communication(QtCore.QThread):
             # read in the message and inform connected objects about the contents
             if self.__secretReady:
                 msg = self.__aes.decrypt(instr.readString())
-                # self.encrypted.emit(True)
             else:
                 msg = instr.readString()
-                # self.encrypted.emit(False)
+
             self.messageReceived.emit(msg)
         elif self.__msgType == Config.FileData_t:
             if self.__secretReady:
-                # self.encrypted.emit(True)
                 self.__rawFile = self.__aes.decrypt(instr.readRawData(self.__blockSize))
             else:
                 self.__rawFile = instr.readRawData(self.__blockSize)
-                # self.encrypted.emit(False)
+
             # downloads go to the user's desktop folder. will emit a signal when finished
             file = QtCore.QFile(Config.DownloadDir + self.__fileName)
             file.open(QtCore.QIODevice.WriteOnly)
@@ -1123,166 +1124,138 @@ class Communication(QtCore.QThread):
         elif self.__msgType == Config.FileName_t:
             # store the file name. used when saving the received file that should come straight after this
             if self.__secretReady:
-                # self.encrypted.emit(True)
                 self.__fileName = self.__aes.decrypt(instr.readString())
             else:
-                # self.encrypted.emit(False)
                 self.__fileName = instr.readString()
-                # print "received file name: " + str(self.__fileName)
         elif self.__msgType == Config.Security_t:
-            print "security msg"
+            "security msg"
+            # message received for security protocol. set flags to true
             self.encrypted_f = True
             self.encrypted.emit(True)
 
+            # read in the sender and receiver. retain data stream for further use
             block = QtCore.QByteArray(instr.readBytes())
             in_rec = QtCore.QDataStream(block, QtCore.QIODevice.ReadOnly)
-            sender, receiver = self.streamReader(in_rec, (str, str))
-            print "Sender: %s, Receiver: %s" % (sender, receiver)
-            # if not self.initiator:
-            #     self.identity = "B"
-            # else:
-            #     self.identity = "A"
+            sender, receiver = streamReader(in_rec, (str, str))
 
             # Go through all of the stages depending on whether the client is the initiator or not
             if "B" in receiver:
-                # this is the receiver
-                # print "not initiator"
+                "Non-Initiator stages"
                 if self.__stage == 0:
-                    # print "received Ka.. sending kb"
-                    self.__partnerKey = RSA.importKey(in_rec.readString())
-                    # send public key
-                    out = self.blockBuilder("B", "A", self.__key.publickey().exportKey())
+                    "received Ka.. sending kb"
+                    # read in the partner's public key and import as RSA key
+                    key = in_rec.readString()
+                    self.__partnerKey = RSA.importKey(key)
+
+                    # send out block of byte containing own public key to A
+                    out = blockBuilder("B", "A", self.__key.publickey().exportKey())
                     self.write(Config.Security_t, out)
+
                     # increment stage
                     self.__stage += 1
+
                 elif self.__stage == 1:
-                    # print "Received PassA... generating session key.. sending Pass B"
+                    "Received PassA... generating session key.. sending Pass B"
+                    # Read and decrypt encrypted block by taking data size and reading for size bytes
                     size = in_rec.readUInt16()
-                    print "---------size----B-"
-                    print size
-                    decrypted = security.heavyDecrypt(in_rec.readRawData(size), self.__key)
+                    encrypted_block = in_rec.readRawData(size)
+                    decrypted_block = security.heavyRSADecrypt(encrypted_block, self.__key)
 
-                    block = QtCore.QByteArray(decrypted)
-                    reader = QtCore.QDataStream(block, QtCore.QIODevice.ReadOnly)
-                    self.__partnerPass = reader.readString()
-                    signature = reader.readString()
+                    # extract partner's pass and signature from decrypted block
+                    block = QtCore.QByteArray(decrypted_block)
+                    self.__partnerPass, signature = blockReader(block, (str, str))
 
-                    # check message with signature
-                    security.verify(security.sha256(self.__partnerPass), signature, self.__partnerKey.exportKey())
+                    # compare hash of message with provided signature and their public key
+                    msg_hash = security.sha256(self.__partnerPass)
+                    if not security.verify(msg_hash, signature, self.__partnerKey.exportKey()):
+                        print "RSA signature verification failed"
 
-                    # self.__partnerPass, signature = self.streamReader(in_rec, (str, str))
                     # generate session key
                     self.__sessionKey = security.sha256(self.__partnerPass + self.__pass)
-                    self.__aes = aes.AESCipher(key=self.__sessionKey)
+                    self.__aes = security.AESCipher(key=self.__sessionKey)
                     encrypted_partnerPass = self.__aes.encrypt(self.__pass)
 
-                    # get signature
-                    signed_msg = security.sign(security.sha256(self.__pass + encrypted_partnerPass), self.__key.exportKey())
+                    # hash outgoing message body and sign
+                    out_hash = security.sha256(self.__pass + encrypted_partnerPass)
+                    signed_msg = security.sign(out_hash, self.__key.exportKey())
 
                     # encrypt msg
-                    print "----B MESSAGE ---------"
-                    msg = QtCore.QByteArray()
-                    writer = QtCore.QDataStream(msg, QtCore.QIODevice.WriteOnly)
-                    writer.writeString(self.__pass)
-                    print msg
-                    writer.writeString(encrypted_partnerPass)
-                    print msg
-                    writer.writeString(str(signed_msg))
-                    print msg
-                    # msg = self.blockBuilder(self.__pass, encrypted_partnerPass, signed_msg)
+                    msg = blockBuilder(self.__pass, encrypted_partnerPass, str(signed_msg))
+                    encrypted_msg = security.heavyRSAEncrypt(msg, self.__partnerKey)
 
-
-
-                    encrypted_msg = security.heavyEncrypt(msg, self.__partnerKey)
-
-                    # write to block
-                    out_block = self.blockBuilder("B", "A", bytearray(encrypted_msg))
+                    # send block to A
+                    out_block = blockBuilder("B", "A", bytearray(encrypted_msg))
                     self.write(Config.Security_t, out_block)
-
-                    # send pass B
-                    # out = self.blockBuilder("B", "A", self.__pass, self.__partnerPass)
-                    # self.write(Config.Security_t, out)
 
                     # increment stage
                     self.__stage += 1
-                elif self.__stage == 2:
-                    # print "Received PassB... checking if correct"
 
-                    nonce = self.__aes.decrypt(in_rec.readString())
-                    if nonce in self.__pass:
-                        print "We have a match"
-                    else:
-                        print "Nonce: %s did not match %s" % (nonce, self.__pass)
+                elif self.__stage == 2:
+                    "Received PassB... checking if correct"
+                    # read in the ch
+                    response = self.__aes.decrypt(in_rec.readString())
+                    if response not in self.__pass:
+                        print "Nonce: %s did not match %s" % (response, self.__pass)
+
                     # setup AES cipher
                     print "Session key: " + self.__sessionKey
-
                     self.__secretReady = True
+
                     # increment stage
                     self.__stage += 1
 
             elif "A" in receiver:
-                # print "initiator"
+                "Initiator Stages"
                 if self.__stage == 0:
-                    print "Received Kb... Sending PassA"
+                    "Received Kb... Sending PassA"
+                    # read in partner's public key and import as RSA key
                     key = in_rec.readString()
                     self.__partnerKey = RSA.importKey(key)
-                    # sign pass
-                    signature = security.sign(security.sha256(self.__pass), self.__key.exportKey())
 
-                    block = QtCore.QByteArray()
-                    writer = QtCore.QDataStream(block, QtCore.QIODevice.WriteOnly)
-                    writer.writeString(self.__pass)
-                    writer.writeString(str(signature))
+                    # hash pass and sign with privte key
+                    out_hash = security.sha256(self.__pass)
+                    signature = security.sign(out_hash, self.__key.exportKey())
 
-                    encrypted_msg = security.heavyEncrypt(block, self.__partnerKey)
-                    byte_msg = bytearray(encrypted_msg)
-                    print "-----Byte-----"
-                    print byte_msg
-                    out = self.blockBuilder("A", "B", byte_msg)
-                    # send pass and signature
-                    # out = self.blockBuilder("A", "B", self.__pass, str(signature))
+                    # populate byte block with pass and signature and encrypt with their public key
+                    block = blockBuilder(self.__pass, (str(signature)))
+                    encrypted_msg = security.heavyRSAEncrypt(block, self.__partnerKey)
+
+                    # write message out to B
+                    out = blockBuilder("A", "B", bytearray(encrypted_msg))
                     self.write(Config.Security_t, out)
+
                     # increment stage
                     self.__stage += 1
                 elif self.__stage == 1:
-                    print "Received PassB... generating session key... sending pass b"
-
+                    "Received PassB... generating session key... send challenge response"
+                    # read encrypted block using retrieved size and decrypt
                     size = in_rec.readUInt16()
-                    print "---------size-------"
-                    print size
-                    decrypted = security.heavyDecrypt(in_rec.readRawData(size), self.__key)
+                    encrypted_block = in_rec.readRawData(size)
+                    decrypted_block = security.heavyRSADecrypt(encrypted_block, self.__key)
 
-                    block = QtCore.QByteArray(decrypted)
-                    reader = QtCore.QDataStream(block, QtCore.QIODevice.ReadOnly)
-                    self.__partnerPass = reader.readString()
-                    nonce = reader.readString()
-                    signature = reader.readString()
+                    # retrieve partner's pass, challenge response and signature from block
+                    block = QtCore.QByteArray(decrypted_block)
+                    self.__partnerPass, response, signature = blockReader(block, (str, str, str))
 
-
-                    # self.__partnerPass, nonce = self.streamReader(in_rec, (str, str))
-                    #
-                    # # decrypt AES before hand
-                    if nonce in self.__pass:
+                    # check the response against own pass
+                    if response in self.__pass:
                         print "We have a match"
                     else:
-                        print "Nonce: %s did not match %s" % (nonce, self.__pass)
-                    #
+                        print "Nonce: %s did not match %s" % (response, self.__pass)
+
                     # generate session key
                     self.__sessionKey = security.sha256(self.__pass + self.__partnerPass)
-                    self.__aes = aes.AESCipher(key=self.__sessionKey)
+                    self.__aes = security.AESCipher(key=self.__sessionKey)
                     msg = self.__aes.encrypt(self.__partnerPass)
-                    out = self.blockBuilder("A", "B", msg)
-                    #
-                    # # send challenge response
-                    self.write(Config.Security_t, out)
-                    # # setup AES cipher
-                    # print "Session key: " + self.__sessionKey
-                    #
 
-                    #
+                    # send challenge response
+                    out = blockBuilder("A", "B", msg)
+                    self.write(Config.Security_t, out)
+
                     # # increment stage
                     self.__stage += 1
-                    # print self.__sessionKey
+
+                    print self.__sessionKey
                     self.__secretReady = True
                     self.encrypted.emit(True)
 
@@ -1339,23 +1312,17 @@ class Communication(QtCore.QThread):
         self.__tcpSocket_request.abort()
         self.__tcpSocket_receive.abort()
 
+        # reset encryption variables
         self.__stage = 0
         self.__key = RSA.generate(1024)
         self.__partnerKey = ""
-        self.__pass = str(randint(0, 500000))
+        self.__pass = str(randint(0, Config.MaxSessionKeyValue))
         self.__partnerPass = ""
         self.__sessionKey = ""
         self.__secretReady = False
         self.encrypted_f = False
-        self.__aes = aes.AESCipher("")
+        self.__aes = security.AESCipher(key="")
         self.initiator = False
-        # self.identity = ""
-
-        # updates the GUI depending on encrypted flag
-        # if self.encrypted_f:
-        #     self.encrypted.emit(True)
-        # else:
-        #     self.encrypted.emit(False)
 
 
 ########################################################################################################################
@@ -1485,18 +1452,9 @@ class DemoDialog(QtGui.QDialog, ui_demo.Ui_Dialog):
 
         data = str(self.lineEdit.text())
         encrypted = publickey.encrypt(data, 32)  # 32 = number of bit
-        # message to encrypt is in the above line 'encrypt this message'
-
-        f = open('encryption.txt', 'w')
-        f.write(str(encrypted))  # write ciphertext to file
-        f.close()
-
-        # decrypted code below
-        f = open('encryption.txt', 'r')
-        message = f.read()
 
         decrypted = key.decrypt(
-            ast.literal_eval(str(message)))  # literal_eval = used to safely evaluated the encrypted text
+            ast.literal_eval(str(encrypted)))  # literal_eval = used to safely evaluated the encrypted text
         # key.decrypt will not evaluate str(encrypt) without
         # literal_eval.  Error = str too large
 
@@ -1508,15 +1466,15 @@ class DemoDialog(QtGui.QDialog, ui_demo.Ui_Dialog):
 
     def on_aes_requested(self):
         key = str(self.lineEdit_2.text())
-        ian = aes.AESCipher(key=key)
+        aes_demo = security.AESCipher(key=key)
 
         # create data (str)
         data = str(self.lineEdit.text())
         # encrypt data
-        encrypted = ian.encrypt(data)
+        encrypted = aes_demo.encrypt(data)
 
         # decrypt data
-        decrypted = ian.decrypt(encrypted)
+        decrypted = aes_demo.decrypt(encrypted)
         self.textBrowser.insertHtml("<b>Plain:</b> " + data)
         self.textBrowser.insertHtml("<br></br>")
         self.textBrowser.insertHtml("<b>Key:</b> " + key)
@@ -1527,11 +1485,10 @@ class DemoDialog(QtGui.QDialog, ui_demo.Ui_Dialog):
 
     def on_sha_requested(self):
         data = str(self.lineEdit.text())
-        hash = hashlib.sha256(data).hexdigest()
-
+        digest = security.sha256(data)
         self.textBrowser.insertHtml("<b>Plain:</b> " + data)
         self.textBrowser.insertHtml("<br></br>")
-        self.textBrowser.insertHtml("<b>Hashed:</b> " + str(hash))
+        self.textBrowser.insertHtml("<b>Hashed:</b> " + digest)
 
 
 ########################################################################################################################
@@ -1609,6 +1566,7 @@ class ConnectDialog(QtGui.QDialog, ui_connect.Ui_Dialog):
 class Config:
     DownloadDir = QtCore.QDir.homePath() + "\\Desktop\\"
     Port_t, Message_t, FileData_t, FileName_t, Security_t = range(5)  # Message types
+    MaxSessionKeyValue = 500000
 
 
 if __name__ == "__main__":

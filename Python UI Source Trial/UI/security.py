@@ -1,4 +1,5 @@
 from Crypto.PublicKey import RSA
+from Crypto.Cipher import AES
 from Crypto.Hash import SHA256
 from Crypto import Random
 from PyQt4 import QtCore
@@ -6,7 +7,11 @@ import base64
 import random
 
 
-def heavyEncrypt(plaintext, public_key):
+##############################################
+# RSA (Authentication)
+##############################################
+
+def heavyRSAEncrypt(plaintext, public_key):
     result = []
     step = 0
     text = base64.b64encode(plaintext)
@@ -22,7 +27,7 @@ def heavyEncrypt(plaintext, public_key):
     return ''.join(result)
 
 
-def heavyDecrypt(ciphertext, private_key):
+def heavyRSADecrypt(ciphertext, private_key):
     step = 0
     result = []
     text = str(ciphertext)
@@ -41,12 +46,23 @@ def heavyDecrypt(ciphertext, private_key):
     return outcome
 
 
-def sign(message, key):
-    signer = RSA.importKey(key)
+def sign(message, private_key):
+    signer = RSA.importKey(private_key)
     digest = SHA256.new()
     digest.update(message)
     return signer.sign(digest.hexdigest(), None)[0]
 
+
+def verify(message, signature, public_key):
+    verifier = RSA.importKey(public_key)
+    digest = SHA256.new()
+    digest.update(message)
+    return verifier.verify(digest.hexdigest(), (long(signature),))
+
+
+##############################################
+# SHA256 (Integrity)
+##############################################
 
 def sha256(data):
     digest = SHA256.new()
@@ -54,24 +70,49 @@ def sha256(data):
     return digest.digest()
 
 
-def writeRaw(stream, data):
-    old_pos = stream.device().pos()
-    stream.writeUInt16(0)
-    stream.writeRawData(data)
-    new_pos = stream.device().pos()
-    size = new_pos - old_pos - 2  # -2 for UInt16
-    stream.device().seek(old_pos)
-    stream.writeUInt16(size)
-    stream.device().seek(new_pos)
+##############################################
+# AES (Confidentiality)
+##############################################
 
-    print "-----WRITE RAW SIZE------"
-    print size
+class AESCipher(object):
+    def __init__(self, key):
+        self.bs = 16
 
-def verify(message, signature, key):
-    verifier = RSA.importKey(key)
-    digest = SHA256.new()
-    digest.update(message)
-    return verifier.verify(digest.hexdigest(), (long(signature),))
+        # represent key in 32 byte form
+        sha = SHA256.new()
+        sha.update(key)
+        self.key = sha.digest()
+
+    def encrypt(self, raw):
+        raw_padded = self._pad(str(raw))
+        iv = Random.new().read(AES.block_size)
+
+        cipher = AES.new(self.key, AES.MODE_CFB, iv)
+        encoded = base64.b64encode(iv + cipher.encrypt(raw_padded))
+        print "Raw (Encrypt): " + raw
+        print "Raw_padded (Encrypt)" + raw_padded
+        print "Encoded (Encrypt): " + encoded
+        return encoded
+
+    def decrypt(self, enc):
+        decoded = base64.b64decode(str(enc))
+        # 0 to block size
+        iv = decoded[:AES.block_size]
+        cipher = AES.new(self.key, AES.MODE_CFB, iv)
+        result = self._unpad(cipher.decrypt(decoded[AES.block_size:]))
+        print "Encoded (Decrypt): " + enc
+        print "Decoded (Decrypt): " + decoded
+        print "Result (Decrypt): " + result
+        return result
+
+    def _pad(self, s):
+        return s + (self.bs - len(s) % self.bs) * chr(self.bs - len(s) % self.bs)
+
+    @staticmethod
+    def _unpad(s):
+        return s[:-ord(s[len(s) - 1:])]
+
+
 
 
 if __name__ == '__main__':
@@ -154,8 +195,8 @@ if __name__ == '__main__':
 
 
 
-    encrypted = heavyEncrypt("hellob", pub_B)
-    print heavyDecrypt(encrypted, key_B)
+    encrypted = heavyRSAEncrypt("hellob", pub_B)
+    print heavyRSADecrypt(encrypted, key_B)
 
     ##################################################
     # test QByteArray reconstruction
@@ -170,9 +211,9 @@ if __name__ == '__main__':
     # test encrypting/decrypting block
     ##################################################
     # encrypt the signature and challenge
-    encrypted_block = heavyEncrypt(block, pub_B)
+    encrypted_block = heavyRSAEncrypt(block, pub_B)
     # decrypt
-    decrypted_block = heavyDecrypt(encrypted_block, key_B)
+    decrypted_block = heavyRSADecrypt(encrypted_block, key_B)
     rebuild = QtCore.QByteArray(decrypted_block)
     # read
     re = QtCore.QDataStream(rebuild, QtCore.QIODevice.ReadOnly)
