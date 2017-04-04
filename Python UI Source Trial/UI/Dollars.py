@@ -945,6 +945,7 @@ class Communication(QtCore.QThread):
         print self.__key.publickey().exportKey()
         self.__partnerKey = ""
         self.__pass = str(randint(0, Config.MaxSessionKeyValue))
+        print "Pass: " + str(self.__pass)
         self.__partnerPass = ""
         self.__sessionKey = ""
         self.initiator = False
@@ -1165,15 +1166,21 @@ class Communication(QtCore.QThread):
                     block = QtCore.QByteArray(decrypted_block)
                     self.__partnerPass, signature = blockReader(block, (str, str))
 
+                    print "-----------------------------"
+                    print "B received pass: " + self.__partnerPass
+
                     # compare hash of message with provided signature and their public key
                     msg_hash = security.sha256(self.__partnerPass)
                     if not security.verify(msg_hash, signature, self.__partnerKey.exportKey()):
+                        print "--------------------------------------------"
                         print "RSA signature verification failed"
+                        print "--------------------------------------------"
+                        self.tearDown()
 
                     # generate session key
                     self.__sessionKey = security.sha256(self.__partnerPass + self.__pass)
                     self.__aes = security.AESCipher(key=self.__sessionKey)
-                    encrypted_partnerPass = self.__aes.encrypt(self.__pass)
+                    encrypted_partnerPass = self.__aes.encrypt(self.__partnerPass)
 
                     # hash outgoing message body and sign
                     out_hash = security.sha256(self.__pass + encrypted_partnerPass)
@@ -1195,7 +1202,14 @@ class Communication(QtCore.QThread):
                     # read in the ch
                     response = self.__aes.decrypt(in_rec.readString())
                     if response not in self.__pass:
+                        print "--------------------------------------------"
                         print "Nonce: %s did not match %s" % (response, self.__pass)
+                        print "--------------------------------------------"
+                        self.tearDown()
+                    else:
+                        print "--------------------------------------------"
+                        print "Nonce: %s is good %s" % (response, self.__pass)
+                        print "--------------------------------------------"
 
                     # setup AES cipher
                     print "Session key: " + self.__sessionKey
@@ -1218,6 +1232,8 @@ class Communication(QtCore.QThread):
 
                     # populate byte block with pass and signature and encrypt with their public key
                     block = blockBuilder(self.__pass, (str(signature)))
+                    print "-----------------------------"
+                    print "A sending pass: " + str(self.__pass)
                     encrypted_msg = security.heavyRSAEncrypt(block, self.__partnerKey)
 
                     # write message out to B
@@ -1237,16 +1253,28 @@ class Communication(QtCore.QThread):
                     block = QtCore.QByteArray(decrypted_block)
                     self.__partnerPass, response, signature = blockReader(block, (str, str, str))
 
-                    # check the response against own pass
-                    if response in self.__pass:
-                        print "We have a match"
-                    else:
-                        print "Nonce: %s did not match %s" % (response, self.__pass)
-
                     # generate session key
                     self.__sessionKey = security.sha256(self.__pass + self.__partnerPass)
                     self.__aes = security.AESCipher(key=self.__sessionKey)
                     msg = self.__aes.encrypt(self.__partnerPass)
+
+                    # check the response against own pass
+                    decrypted_response = self.__aes.decrypt(response)
+                    if decrypted_response not in self.__pass:
+                        print "--------------------------------------------"
+                        print "Nonce: %s did not match %s" % (decrypted_response, self.__pass)
+                        print "--------------------------------------------"
+                        self.tearDown()
+                    else:
+                        print "--------------------------------------------"
+                        print "Nonce: %s is good %s" % (decrypted_response, self.__pass)
+                        print "--------------------------------------------"
+
+                    # check signature
+                    msg_hash = security.sha256(self.__partnerPass + response)
+                    if not security.verify(msg_hash, signature, self.__partnerKey.exportKey()):
+                        print "RSA signature verification failed"
+                        self.tearDown()
 
                     # send challenge response
                     out = blockBuilder("A", "B", msg)
@@ -1316,7 +1344,7 @@ class Communication(QtCore.QThread):
         self.__stage = 0
         self.__key = RSA.generate(1024)
         self.__partnerKey = ""
-        self.__pass = str(randint(0, Config.MaxSessionKeyValue))
+        # self.__pass = str(randint(0, Config.MaxSessionKeyValue))
         self.__partnerPass = ""
         self.__sessionKey = ""
         self.__secretReady = False
